@@ -103,6 +103,7 @@ export async function getLandingPageData(
     campaign_id,
     full_name,
     profession,
+    image_url,
     city,
     neighborhood,
     instagram,
