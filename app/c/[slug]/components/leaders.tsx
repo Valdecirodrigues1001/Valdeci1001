@@ -103,7 +103,7 @@ export default function Leaders({
                   <>
                     <Image
                       src={leader.image_url}
-                      alt={leader.name}
+                      alt={leader.full_name}
                       fill
                       sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                       className="object-cover object-top transition duration-500 group-hover:scale-105"
@@ -121,8 +121,8 @@ export default function Leaders({
                         color: landing.secondary_color,
                       }}
                     >
-                      {leader.name
-                        ? getInitials(leader.name)
+                      {leader.full_name
+                        ? getInitials(leader.full_name)
                         : (
                           <UserRound className="h-12 w-12" />
                         )}
@@ -150,12 +150,12 @@ export default function Leaders({
                   </div>
 
                   <h3 className="mt-3 text-2xl font-black leading-tight tracking-[-0.03em]">
-                    {leader.name}
+                    {leader.full_name}
                   </h3>
 
-                  {leader.role && (
+                  {leader.profession && (
                     <p className="mt-2 text-sm font-semibold opacity-85">
-                      {leader.role}
+                      {leader.profession }
                     </p>
                   )}
 

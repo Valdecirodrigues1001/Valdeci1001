@@ -75,6 +75,7 @@ seo_keywords: string | null;
 
   whatsapp: string | null;
 email: string | null;
+community_group_url: string | null;
 
 instagram_url: string | null;
 facebook_url: string | null;
