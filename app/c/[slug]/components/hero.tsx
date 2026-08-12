@@ -28,12 +28,15 @@ export default function Hero({
     .filter(Boolean)
     .join(" - ");
 
-  const whatsappUrl =
-    landing.whatsapp
-      ? `https://wa.me/${normalizeWhatsApp(
-          landing.whatsapp
-        )}`
-      : null;
+ const whatsappMessage = encodeURIComponent(
+  `Olá! Quero acompanhar a campanha de ${landing.public_name} e autorizo o recebimento de informações, novidades e comunicações da campanha pelo WhatsApp.`
+);
+
+const whatsappUrl = landing.whatsapp
+  ? `https://wa.me/${normalizeWhatsApp(
+      landing.whatsapp
+    )}?text=${whatsappMessage}`
+  : null;
 
   const heroTitle =
     landing.hero_title ||
