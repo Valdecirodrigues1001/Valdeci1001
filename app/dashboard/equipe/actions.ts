@@ -311,9 +311,16 @@ export async function inviteTeamMember(
 
   const adminSupabase = createAdminClient();
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    "http://localhost:3000";
+ const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL;
+
+if (!siteUrl) {
+  return {
+    success: false,
+    message:
+      "A URL pública do sistema não está configurada.",
+  };
+}
 
   const redirectTo = new URL(
     "/auth/confirm",
