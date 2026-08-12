@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { checkPermission } from "@/lib/auth/campaign-access";
 import { createClient } from "@/lib/supabase/server";
 
 export type SupporterDetailState = {
@@ -10,47 +11,28 @@ export type SupporterDetailState = {
   error?: string;
 };
 
-async function getCurrentCampaign() {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return {
-      supabase,
-      user: null,
-      campaignId: null,
-    };
-  }
-
-  const { data: membership } = await supabase
-    .from("campaign_members")
-    .select("campaign_id")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  return {
-    supabase,
-    user,
-    campaignId: membership?.campaign_id ?? null,
-  };
-}
-
 export async function updateSupporter(
   supporterId: string,
   _previousState: SupporterDetailState,
   formData: FormData
 ): Promise<SupporterDetailState> {
-  const { supabase, user, campaignId } =
-    await getCurrentCampaign();
+  const { allowed, access } =
+    await checkPermission(
+      "supporters.manage"
+    );
 
-  if (!user || !campaignId) {
+  if (!allowed || !access) {
     return {
-      error: "Não foi possível identificar sua campanha.",
+      error:
+        "Você não possui permissão para editar apoiadores.",
+    };
+  }
+
+  const supabase = await createClient();
+
+  if (!supporterId) {
+    return {
+      error: "Apoiador inválido.",
     };
   }
 
@@ -72,79 +54,99 @@ export async function updateSupporter(
     full_name: fullName,
 
     whatsapp:
-      String(formData.get("whatsapp") ?? "").trim() ||
-      null,
+      String(
+        formData.get("whatsapp") ?? ""
+      ).trim() || null,
 
     phone:
-      String(formData.get("phone") ?? "").trim() ||
-      null,
+      String(
+        formData.get("phone") ?? ""
+      ).trim() || null,
 
     email:
-      String(formData.get("email") ?? "").trim() ||
-      null,
+      String(
+        formData.get("email") ?? ""
+      ).trim() || null,
 
-    birth_date: birthDate || null,
+    birth_date:
+      birthDate || null,
 
     profession:
-      String(formData.get("profession") ?? "").trim() ||
-      null,
+      String(
+        formData.get("profession") ?? ""
+      ).trim() || null,
 
     city:
-      String(formData.get("city") ?? "").trim() ||
-      null,
+      String(
+        formData.get("city") ?? ""
+      ).trim() || null,
 
     neighborhood:
-      String(formData.get("neighborhood") ?? "").trim() ||
-      null,
+      String(
+        formData.get("neighborhood") ?? ""
+      ).trim() || null,
 
     street:
-      String(formData.get("street") ?? "").trim() ||
-      null,
+      String(
+        formData.get("street") ?? ""
+      ).trim() || null,
 
     street_number:
-      String(formData.get("street_number") ?? "").trim() ||
-      null,
+      String(
+        formData.get("street_number") ?? ""
+      ).trim() || null,
 
     complement:
-      String(formData.get("complement") ?? "").trim() ||
-      null,
+      String(
+        formData.get("complement") ?? ""
+      ).trim() || null,
 
     postal_code:
-      String(formData.get("postal_code") ?? "").trim() ||
-      null,
+      String(
+        formData.get("postal_code") ?? ""
+      ).trim() || null,
 
     electoral_zone:
-      String(formData.get("electoral_zone") ?? "").trim() ||
-      null,
+      String(
+        formData.get("electoral_zone") ?? ""
+      ).trim() || null,
 
     electoral_section:
       String(
-        formData.get("electoral_section") ?? ""
+        formData.get(
+          "electoral_section"
+        ) ?? ""
       ).trim() || null,
 
     polling_place:
-      String(formData.get("polling_place") ?? "").trim() ||
-      null,
+      String(
+        formData.get("polling_place") ?? ""
+      ).trim() || null,
 
     instagram:
-      String(formData.get("instagram") ?? "").trim() ||
-      null,
+      String(
+        formData.get("instagram") ?? ""
+      ).trim() || null,
 
     facebook:
-      String(formData.get("facebook") ?? "").trim() ||
-      null,
+      String(
+        formData.get("facebook") ?? ""
+      ).trim() || null,
 
     status: String(
-      formData.get("status") ?? "supporter"
+      formData.get("status") ??
+        "supporter"
     ),
 
     origin: String(
-      formData.get("origin") ?? "manual"
+      formData.get("origin") ??
+        "manual"
     ),
 
     notes:
-      String(formData.get("notes") ?? "").trim() ||
-      null,
+      String(
+        formData.get("notes") ?? ""
+      ).trim() || null,
   };
 
   const {
@@ -154,7 +156,10 @@ export async function updateSupporter(
     .from("supporters")
     .update(payload)
     .eq("id", supporterId)
-    .eq("campaign_id", campaignId)
+    .eq(
+      "campaign_id",
+      access.campaignId
+    )
     .is("deleted_at", null)
     .select("id")
     .maybeSingle();
@@ -162,11 +167,17 @@ export async function updateSupporter(
   if (error) {
     console.error(
       "Erro ao atualizar apoiador:",
-      error
+      {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      }
     );
 
     return {
-      error: "Não foi possível salvar as alterações.",
+      error:
+        "Não foi possível salvar as alterações.",
     };
   }
 
@@ -177,17 +188,28 @@ export async function updateSupporter(
     };
   }
 
-  const { error: activityError } = await supabase
-    .from("supporter_activities")
-    .insert({
-      campaign_id: campaignId,
-      supporter_id: supporterId,
-      activity_type: "updated",
-      title: "Cadastro atualizado",
-      description:
-        "As informações do apoiador foram atualizadas.",
-      created_by: user.id,
-    });
+  const { error: activityError } =
+    await supabase
+      .from("supporter_activities")
+      .insert({
+        campaign_id:
+          access.campaignId,
+
+        supporter_id:
+          supporterId,
+
+        activity_type:
+          "updated",
+
+        title:
+          "Cadastro atualizado",
+
+        description:
+          "As informações do apoiador foram atualizadas.",
+
+        created_by:
+          access.userId,
+      });
 
   if (activityError) {
     console.error(
@@ -197,13 +219,26 @@ export async function updateSupporter(
   }
 
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/apoiadores");
+
+  revalidatePath(
+    "/dashboard/apoiadores"
+  );
+
   revalidatePath(
     `/dashboard/apoiadores/${supporterId}`
   );
 
+  revalidatePath(
+    "/dashboard/crm"
+  );
+
+  revalidatePath(
+    "/dashboard/mobilizacao"
+  );
+
   return {
-    success: "Alterações salvas com sucesso.",
+    success:
+      "Alterações salvas com sucesso.",
   };
 }
 
@@ -212,22 +247,37 @@ export async function addSupporterActivity(
   _previousState: SupporterDetailState,
   formData: FormData
 ): Promise<SupporterDetailState> {
-  const { supabase, user, campaignId } =
-    await getCurrentCampaign();
+  const { allowed, access } =
+    await checkPermission(
+      "supporters.manage"
+    );
 
-  if (!user || !campaignId) {
+  if (!allowed || !access) {
     return {
-      error: "Não foi possível identificar sua campanha.",
+      error:
+        "Você não possui permissão para registrar atividades.",
     };
   }
 
-  const { data: supporter } = await supabase
-    .from("supporters")
-    .select("id")
-    .eq("id", supporterId)
-    .eq("campaign_id", campaignId)
-    .is("deleted_at", null)
-    .maybeSingle();
+  const supabase = await createClient();
+
+  if (!supporterId) {
+    return {
+      error: "Apoiador inválido.",
+    };
+  }
+
+  const { data: supporter } =
+    await supabase
+      .from("supporters")
+      .select("id")
+      .eq("id", supporterId)
+      .eq(
+        "campaign_id",
+        access.campaignId
+      )
+      .is("deleted_at", null)
+      .maybeSingle();
 
   if (!supporter) {
     return {
@@ -245,30 +295,47 @@ export async function addSupporterActivity(
   ).trim();
 
   const activityType = String(
-    formData.get("activity_type") ?? "note"
+    formData.get("activity_type") ??
+      "note"
   );
 
   if (!title) {
     return {
-      error: "Informe o título da atividade.",
+      error:
+        "Informe o título da atividade.",
     };
   }
 
   const { error } = await supabase
     .from("supporter_activities")
     .insert({
-      campaign_id: campaignId,
-      supporter_id: supporterId,
-      activity_type: activityType,
+      campaign_id:
+        access.campaignId,
+
+      supporter_id:
+        supporterId,
+
+      activity_type:
+        activityType,
+
       title,
-      description: description || null,
-      created_by: user.id,
+
+      description:
+        description || null,
+
+      created_by:
+        access.userId,
     });
 
   if (error) {
     console.error(
       "Erro ao registrar atividade:",
-      error
+      {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      }
     );
 
     return {
@@ -281,20 +348,36 @@ export async function addSupporterActivity(
     `/dashboard/apoiadores/${supporterId}`
   );
 
+  revalidatePath(
+    "/dashboard/crm"
+  );
+
   return {
-    success: "Atividade registrada com sucesso.",
+    success:
+      "Atividade registrada com sucesso.",
   };
 }
 
 export async function deleteSupporter(
   supporterId: string
 ): Promise<SupporterDetailState> {
-  const { supabase, user, campaignId } =
-    await getCurrentCampaign();
+  const { allowed, access } =
+    await checkPermission(
+      "supporters.manage"
+    );
 
-  if (!user || !campaignId) {
+  if (!allowed || !access) {
     return {
-      error: "Não foi possível identificar sua campanha.",
+      error:
+        "Você não possui permissão para excluir apoiadores.",
+    };
+  }
+
+  const supabase = await createClient();
+
+  if (!supporterId) {
+    return {
+      error: "Apoiador inválido.",
     };
   }
 
@@ -303,9 +386,15 @@ export async function deleteSupporter(
     error: supporterError,
   } = await supabase
     .from("supporters")
-    .select("id, full_name")
+    .select(`
+      id,
+      full_name
+    `)
     .eq("id", supporterId)
-    .eq("campaign_id", campaignId)
+    .eq(
+      "campaign_id",
+      access.campaignId
+    )
     .is("deleted_at", null)
     .maybeSingle();
 
@@ -316,7 +405,8 @@ export async function deleteSupporter(
     );
 
     return {
-      error: "Não foi possível localizar o apoiador.",
+      error:
+        "Não foi possível localizar o apoiador.",
     };
   }
 
@@ -327,7 +417,8 @@ export async function deleteSupporter(
     };
   }
 
-  const deletedAt = new Date().toISOString();
+  const deletedAt =
+    new Date().toISOString();
 
   const {
     data: deletedSupporter,
@@ -337,9 +428,13 @@ export async function deleteSupporter(
     .update({
       deleted_at: deletedAt,
       status: "inactive",
+      is_active: false,
     })
     .eq("id", supporterId)
-    .eq("campaign_id", campaignId)
+    .eq(
+      "campaign_id",
+      access.campaignId
+    )
     .is("deleted_at", null)
     .select("id")
     .maybeSingle();
@@ -347,11 +442,21 @@ export async function deleteSupporter(
   if (deleteError) {
     console.error(
       "Erro ao excluir apoiador:",
-      deleteError
+      {
+        message:
+          deleteError.message,
+        details:
+          deleteError.details,
+        hint:
+          deleteError.hint,
+        code:
+          deleteError.code,
+      }
     );
 
     return {
-      error: "Não foi possível excluir o apoiador.",
+      error:
+        "Não foi possível excluir o apoiador.",
     };
   }
 
@@ -362,16 +467,28 @@ export async function deleteSupporter(
     };
   }
 
-  const { error: activityError } = await supabase
-    .from("supporter_activities")
-    .insert({
-      campaign_id: campaignId,
-      supporter_id: supporterId,
-      activity_type: "updated",
-      title: "Apoiador removido",
-      description: `${supporter.full_name} foi removido do CRM.`,
-      created_by: user.id,
-    });
+  const { error: activityError } =
+    await supabase
+      .from("supporter_activities")
+      .insert({
+        campaign_id:
+          access.campaignId,
+
+        supporter_id:
+          supporterId,
+
+        activity_type:
+          "updated",
+
+        title:
+          "Apoiador removido",
+
+        description:
+          `${supporter.full_name} foi removido do CRM.`,
+
+        created_by:
+          access.userId,
+      });
 
   if (activityError) {
     console.error(
@@ -381,10 +498,24 @@ export async function deleteSupporter(
   }
 
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/apoiadores");
+
+  revalidatePath(
+    "/dashboard/apoiadores"
+  );
+
   revalidatePath(
     `/dashboard/apoiadores/${supporterId}`
   );
 
-  redirect("/dashboard/apoiadores");
+  revalidatePath(
+    "/dashboard/crm"
+  );
+
+  revalidatePath(
+    "/dashboard/mobilizacao"
+  );
+
+  redirect(
+    "/dashboard/apoiadores"
+  );
 }

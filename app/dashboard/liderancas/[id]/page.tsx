@@ -10,13 +10,18 @@ import {
   Users,
   UserX,
 } from "lucide-react";
+
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+
 import { ActivityForm } from "./activity-form";
 import { LeaderEditForm } from "./leader-edit-form";
 import { LinkSupporterForm } from "./link-supporter-form";
 import { unlinkSupporter } from "./actions";
+
+import { requirePermission } from "@/lib/auth/campaign-access";
+import { hasPermission } from "@/lib/permissions";
+import { createClient } from "@/lib/supabase/server";
 
 type LeaderPageProps = {
   params: Promise<{
@@ -55,50 +60,79 @@ const activityLabels: Record<string, string> = {
 export default async function LeaderDetailPage({
   params,
 }: LeaderPageProps) {
+  /*
+   * Para abrir a ficha é obrigatório
+   * possuir permissão de visualização.
+   */
+  const access =
+    await requirePermission("leaders.view");
+
+  /*
+   * Define se o usuário poderá executar
+   * alterações nesta liderança.
+   */
+  const canManageLeaders = hasPermission(
+    access.role,
+    "leaders.manage"
+  );
+
   const { id } = await params;
 
   const supabase = await createClient();
 
+  /*
+   * A liderança precisa pertencer
+   * obrigatoriamente à campanha atual.
+   */
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    notFound();
-  }
-
-  const { data: membership } = await supabase
-    .from("campaign_members")
-    .select("campaign_id")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (!membership) {
-    notFound();
-  }
-
-  const { data: leader } = await supabase
+    data: leader,
+    error: leaderError,
+  } = await supabase
     .from("leaders")
     .select("*")
     .eq("id", id)
-    .eq("campaign_id", membership.campaign_id)
+    .eq(
+      "campaign_id",
+      access.campaignId
+    )
+    .eq("is_active", true)
     .maybeSingle();
+
+  if (leaderError) {
+    console.error(
+      "Erro ao buscar liderança:",
+      leaderError
+    );
+  }
 
   if (!leader) {
     notFound();
   }
 
   const [
-    { data: parentLeadersData },
-    { data: supportersData },
-    { data: activitiesData },
+    {
+      data: parentLeadersData,
+      error: parentLeadersError,
+    },
+    {
+      data: supportersData,
+      error: supportersError,
+    },
+    {
+      data: activitiesData,
+      error: activitiesError,
+    },
   ] = await Promise.all([
     supabase
       .from("leaders")
-      .select("id, full_name")
-      .eq("campaign_id", membership.campaign_id)
+      .select(`
+        id,
+        full_name
+      `)
+      .eq(
+        "campaign_id",
+        access.campaignId
+      )
       .eq("is_active", true)
       .neq("id", id)
       .order("full_name"),
@@ -113,8 +147,12 @@ export default async function LeaderDetailPage({
         neighborhood,
         leader_id
       `)
-      .eq("campaign_id", membership.campaign_id)
+      .eq(
+        "campaign_id",
+        access.campaignId
+      )
       .eq("is_active", true)
+      .is("deleted_at", null)
       .order("full_name"),
 
     supabase
@@ -127,28 +165,63 @@ export default async function LeaderDetailPage({
         created_at
       `)
       .eq("leader_id", id)
-      .eq("campaign_id", membership.campaign_id)
+      .eq(
+        "campaign_id",
+        access.campaignId
+      )
       .order("created_at", {
         ascending: false,
       }),
   ]);
 
-  const supporters = (supportersData ?? []) as Supporter[];
+  if (parentLeadersError) {
+    console.error(
+      "Erro ao buscar lideranças responsáveis:",
+      parentLeadersError
+    );
+  }
 
-  const linkedSupporters = supporters.filter(
-    (supporter) => supporter.leader_id === id
-  );
+  if (supportersError) {
+    console.error(
+      "Erro ao buscar apoiadores:",
+      supportersError
+    );
+  }
 
-  const availableSupporters = supporters.filter(
-    (supporter) => supporter.leader_id !== id
-  );
+  if (activitiesError) {
+    console.error(
+      "Erro ao buscar histórico:",
+      activitiesError
+    );
+  }
 
-  const parentLeaders = parentLeadersData ?? [];
-  const activities = (activitiesData ?? []) as Activity[];
+  const supporters =
+    (supportersData ?? []) as Supporter[];
 
-  const parentLeader = parentLeaders.find(
-    (item) => item.id === leader.parent_leader_id
-  );
+  const linkedSupporters =
+    supporters.filter(
+      (supporter) =>
+        supporter.leader_id === id
+    );
+
+  const availableSupporters =
+    supporters.filter(
+      (supporter) =>
+        supporter.leader_id !== id
+    );
+
+  const parentLeaders =
+    parentLeadersData ?? [];
+
+  const activities =
+    (activitiesData ?? []) as Activity[];
+
+  const parentLeader =
+    parentLeaders.find(
+      (item) =>
+        item.id ===
+        leader.parent_leader_id
+    );
 
   const achievementPercentage =
     leader.estimated_supporters > 0
@@ -177,7 +250,9 @@ export default async function LeaderDetailPage({
           <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex items-center gap-5">
               <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-[#D4AF37] text-2xl font-bold text-[#081B33]">
-                {leader.full_name.charAt(0).toUpperCase()}
+                {leader.full_name
+                  .charAt(0)
+                  .toUpperCase()}
               </div>
 
               <div>
@@ -231,9 +306,21 @@ export default async function LeaderDetailPage({
           </div>
         </header>
 
+        {!canManageLeaders ? (
+          <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+            <p className="text-sm font-medium text-blue-800">
+              Você possui acesso somente para
+              visualização desta liderança.
+            </p>
+          </div>
+        ) : null}
+
         <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <article className="rounded-2xl border border-slate-200 bg-white p-5">
-            <MessageCircle size={20} className="text-slate-400" />
+            <MessageCircle
+              size={20}
+              className="text-slate-400"
+            />
 
             <p className="mt-3 text-xs uppercase tracking-wider text-slate-400">
               Contato
@@ -247,41 +334,59 @@ export default async function LeaderDetailPage({
           </article>
 
           <article className="rounded-2xl border border-slate-200 bg-white p-5">
-            <MapPin size={20} className="text-slate-400" />
+            <MapPin
+              size={20}
+              className="text-slate-400"
+            />
 
             <p className="mt-3 text-xs uppercase tracking-wider text-slate-400">
               Localização
             </p>
 
             <p className="mt-1 truncate font-medium text-slate-700">
-              {[leader.neighborhood, leader.city]
+              {[
+                leader.neighborhood,
+                leader.city,
+              ]
                 .filter(Boolean)
-                .join(", ") || "Não informada"}
+                .join(", ") ||
+                "Não informada"}
             </p>
           </article>
 
           <article className="rounded-2xl border border-slate-200 bg-white p-5">
-            <Network size={20} className="text-slate-400" />
+            <Network
+              size={20}
+              className="text-slate-400"
+            />
 
             <p className="mt-3 text-xs uppercase tracking-wider text-slate-400">
               Responsável
             </p>
 
             <p className="mt-1 truncate font-medium text-slate-700">
-              {parentLeader?.full_name || "Liderança direta"}
+              {parentLeader?.full_name ||
+                "Liderança direta"}
             </p>
           </article>
 
           <article className="rounded-2xl border border-slate-200 bg-white p-5">
-            <CalendarDays size={20} className="text-slate-400" />
+            <CalendarDays
+              size={20}
+              className="text-slate-400"
+            />
 
             <p className="mt-3 text-xs uppercase tracking-wider text-slate-400">
               Cadastro
             </p>
 
             <p className="mt-1 font-medium text-slate-700">
-              {new Intl.DateTimeFormat("pt-BR").format(
-                new Date(leader.created_at)
+              {new Intl.DateTimeFormat(
+                "pt-BR"
+              ).format(
+                new Date(
+                  leader.created_at
+                )
               )}
             </p>
           </article>
@@ -301,22 +406,102 @@ export default async function LeaderDetailPage({
                   </h2>
 
                   <p className="text-sm text-slate-500">
-                    Atualize as informações sempre que necessário.
+                    {canManageLeaders
+                      ? "Atualize as informações sempre que necessário."
+                      : "Consulte as informações cadastradas desta liderança."}
                   </p>
                 </div>
               </div>
 
               <div className="mt-8">
-                <LeaderEditForm
-                  leader={leader}
-                  parentLeaders={parentLeaders}
-                />
+                {canManageLeaders ? (
+                  <LeaderEditForm
+                    leader={leader}
+                    parentLeaders={
+                      parentLeaders
+                    }
+                  />
+                ) : (
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <ReadOnlyField
+                      label="Nome"
+                      value={leader.full_name}
+                    />
+
+                    <ReadOnlyField
+                      label="Profissão"
+                      value={
+                        leader.profession
+                      }
+                    />
+
+                    <ReadOnlyField
+                      label="WhatsApp"
+                      value={
+                        leader.whatsapp
+                      }
+                    />
+
+                    <ReadOnlyField
+                      label="Telefone"
+                      value={leader.phone}
+                    />
+
+                    <ReadOnlyField
+                      label="E-mail"
+                      value={leader.email}
+                    />
+
+                    <ReadOnlyField
+                      label="Cidade"
+                      value={leader.city}
+                    />
+
+                    <ReadOnlyField
+                      label="Bairro"
+                      value={
+                        leader.neighborhood
+                      }
+                    />
+
+                    <ReadOnlyField
+                      label="Área de influência"
+                      value={
+                        leader.area_of_influence
+                      }
+                    />
+
+                    <ReadOnlyField
+                      label="Potencial estimado"
+                      value={String(
+                        leader.estimated_supporters ??
+                          0
+                      )}
+                    />
+
+                    <ReadOnlyField
+                      label="Status"
+                      value={
+                        leader.status ===
+                        "active"
+                          ? "Ativa"
+                          : leader.status ===
+                              "prospect"
+                            ? "Em prospecção"
+                            : "Inativa"
+                      }
+                    />
+                  </div>
+                )}
               </div>
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
               <div className="flex items-center gap-3">
-                <Users size={22} className="text-[#081B33]" />
+                <Users
+                  size={22}
+                  className="text-[#081B33]"
+                />
 
                 <div>
                   <h2 className="text-xl font-semibold text-[#081B33]">
@@ -324,12 +509,14 @@ export default async function LeaderDetailPage({
                   </h2>
 
                   <p className="text-sm text-slate-500">
-                    {linkedSupporters.length} pessoas vinculadas.
+                    {linkedSupporters.length}{" "}
+                    pessoas vinculadas.
                   </p>
                 </div>
               </div>
 
-              {linkedSupporters.length === 0 ? (
+              {linkedSupporters.length ===
+              0 ? (
                 <div className="mt-6 rounded-2xl border border-dashed border-slate-300 p-8 text-center">
                   <Handshake
                     size={28}
@@ -337,106 +524,141 @@ export default async function LeaderDetailPage({
                   />
 
                   <p className="mt-3 font-medium text-slate-600">
-                    Nenhum apoiador vinculado
+                    Nenhum apoiador
+                    vinculado
                   </p>
 
                   <p className="mt-1 text-sm text-slate-400">
-                    Utilize o formulário ao lado para formar a rede
-                    desta liderança.
+                    {canManageLeaders
+                      ? "Utilize o formulário de vinculação para formar a rede desta liderança."
+                      : "Esta liderança ainda não possui apoiadores vinculados."}
                   </p>
                 </div>
               ) : (
                 <div className="mt-6 space-y-3">
-                  {linkedSupporters.map((supporter) => {
-                    const unlinkAction = unlinkSupporter.bind(
-                      null,
-                      leader.id,
-                      supporter.id
-                    );
+                  {linkedSupporters.map(
+                    (supporter) => {
+                      const unlinkAction =
+                        unlinkSupporter.bind(
+                          null,
+                          leader.id,
+                          supporter.id
+                        );
 
-                    return (
-                      <article
-                        key={supporter.id}
-                        className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <Link
-                          href={`/dashboard/apoiadores/${supporter.id}`}
-                          className="flex min-w-0 items-center gap-3"
+                      return (
+                        <article
+                          key={supporter.id}
+                          className="flex flex-col gap-4 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
                         >
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#081B33] font-semibold text-white">
-                            {supporter.full_name
-                              .charAt(0)
-                              .toUpperCase()}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-[#081B33]">
-                              {supporter.full_name}
-                            </p>
-
-                            <p className="mt-1 truncate text-sm text-slate-500">
-                              {[supporter.neighborhood, supporter.city]
-                                .filter(Boolean)
-                                .join(", ") ||
-                                supporter.whatsapp ||
-                                "Dados não informados"}
-                            </p>
-                          </div>
-                        </Link>
-
-                        <form action={unlinkAction}>
-                          <button
-                            type="submit"
-                            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                          <Link
+                            href={`/dashboard/apoiadores/${supporter.id}`}
+                            className="flex min-w-0 items-center gap-3"
                           >
-                            <UserX size={17} />
-                            Desvincular
-                          </button>
-                        </form>
-                      </article>
-                    );
-                  })}
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#081B33] font-semibold text-white">
+                              {supporter.full_name
+                                .charAt(0)
+                                .toUpperCase()}
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-[#081B33]">
+                                {
+                                  supporter.full_name
+                                }
+                              </p>
+
+                              <p className="mt-1 truncate text-sm text-slate-500">
+                                {[
+                                  supporter.neighborhood,
+                                  supporter.city,
+                                ]
+                                  .filter(
+                                    Boolean
+                                  )
+                                  .join(
+                                    ", "
+                                  ) ||
+                                  supporter.whatsapp ||
+                                  "Dados não informados"}
+                              </p>
+                            </div>
+                          </Link>
+
+                          {canManageLeaders ? (
+                            <form
+                              action={
+                                unlinkAction
+                              }
+                            >
+                              <button
+                                type="submit"
+                                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                              >
+                                <UserX
+                                  size={17}
+                                />
+                                Desvincular
+                              </button>
+                            </form>
+                          ) : null}
+                        </article>
+                      );
+                    }
+                  )}
                 </div>
               )}
             </section>
           </div>
 
           <div className="space-y-8">
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-[#081B33]">
-                Vincular apoiador
-              </h2>
+            {canManageLeaders ? (
+              <>
+                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-xl font-semibold text-[#081B33]">
+                    Vincular apoiador
+                  </h2>
 
-              <p className="mt-1 text-sm leading-6 text-slate-500">
-                Selecione uma pessoa cadastrada para integrar a rede
-                desta liderança.
-              </p>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Selecione uma pessoa
+                    cadastrada para integrar a
+                    rede desta liderança.
+                  </p>
 
-              <div className="mt-6">
-                <LinkSupporterForm
-                  leaderId={leader.id}
-                  supporters={availableSupporters}
-                />
-              </div>
-            </section>
+                  <div className="mt-6">
+                    <LinkSupporterForm
+                      leaderId={leader.id}
+                      supporters={
+                        availableSupporters
+                      }
+                    />
+                  </div>
+                </section>
 
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-[#081B33]">
-                Nova atividade
-              </h2>
+                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <h2 className="text-xl font-semibold text-[#081B33]">
+                    Nova atividade
+                  </h2>
 
-              <p className="mt-1 text-sm text-slate-500">
-                Registre contatos, reuniões e movimentações.
-              </p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Registre contatos, reuniões
+                    e movimentações.
+                  </p>
 
-              <div className="mt-6">
-                <ActivityForm leaderId={leader.id} />
-              </div>
-            </section>
+                  <div className="mt-6">
+                    <ActivityForm
+                      leaderId={leader.id}
+                    />
+                  </div>
+                </section>
+              </>
+            ) : null}
 
             <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-3">
-                <History size={21} className="text-[#081B33]" />
+                <History
+                  size={21}
+                  className="text-[#081B33]"
+                />
 
                 <h2 className="text-xl font-semibold text-[#081B33]">
                   Histórico
@@ -445,42 +667,55 @@ export default async function LeaderDetailPage({
 
               {activities.length === 0 ? (
                 <p className="mt-6 text-sm text-slate-400">
-                  Nenhuma atividade registrada.
+                  Nenhuma atividade
+                  registrada.
                 </p>
               ) : (
                 <div className="mt-6 space-y-5">
-                  {activities.map((activity) => (
-                    <article
-                      key={activity.id}
-                      className="border-l-2 border-[#D4AF37] pl-4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <span className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">
-                            {activityLabels[
-                              activity.activity_type
-                            ] ?? "Atividade"}
-                          </span>
+                  {activities.map(
+                    (activity) => (
+                      <article
+                        key={activity.id}
+                        className="border-l-2 border-[#D4AF37] pl-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <span className="text-xs font-semibold uppercase tracking-wider text-[#D4AF37]">
+                              {activityLabels[
+                                activity
+                                  .activity_type
+                              ] ??
+                                "Atividade"}
+                            </span>
 
-                          <h3 className="mt-1 font-semibold text-slate-800">
-                            {activity.title}
-                          </h3>
+                            <h3 className="mt-1 font-semibold text-slate-800">
+                              {
+                                activity.title
+                              }
+                            </h3>
+                          </div>
+
+                          <time className="shrink-0 text-xs text-slate-400">
+                            {new Intl.DateTimeFormat(
+                              "pt-BR"
+                            ).format(
+                              new Date(
+                                activity.created_at
+                              )
+                            )}
+                          </time>
                         </div>
 
-                        <time className="shrink-0 text-xs text-slate-400">
-                          {new Intl.DateTimeFormat("pt-BR").format(
-                            new Date(activity.created_at)
-                          )}
-                        </time>
-                      </div>
-
-                      {activity.description ? (
-                        <p className="mt-2 text-sm leading-6 text-slate-500">
-                          {activity.description}
-                        </p>
-                      ) : null}
-                    </article>
-                  ))}
+                        {activity.description ? (
+                          <p className="mt-2 text-sm leading-6 text-slate-500">
+                            {
+                              activity.description
+                            }
+                          </p>
+                        ) : null}
+                      </article>
+                    )
+                  )}
                 </div>
               )}
             </section>
@@ -488,5 +723,28 @@ export default async function LeaderDetailPage({
         </div>
       </div>
     </main>
+  );
+}
+
+function ReadOnlyField({
+  label,
+  value,
+}: {
+  label: string;
+  value:
+    | string
+    | null
+    | undefined;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+        {label}
+      </p>
+
+      <p className="mt-2 text-sm font-medium text-slate-700">
+        {value || "Não informado"}
+      </p>
+    </div>
   );
 }

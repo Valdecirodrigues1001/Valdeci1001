@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
+import { Toaster } from "sonner";
+
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { createClient } from "@/lib/supabase/server";
+import type { CampaignRole } from "@/lib/permissions";
 
 type CampaignData = {
   id: string;
@@ -31,6 +34,7 @@ export default async function DashboardLayout({
     .from("campaign_members")
     .select(`
       campaign_id,
+      role,
       campaigns (
         id,
         name,
@@ -47,7 +51,10 @@ export default async function DashboardLayout({
     .maybeSingle();
 
   if (error) {
-    console.error("Erro ao buscar campanha:", error.message);
+    console.error(
+      "Erro ao buscar campanha:",
+      error.message
+    );
   }
 
   const campaignRelation = membership?.campaigns;
@@ -58,7 +65,7 @@ export default async function DashboardLayout({
       : campaignRelation
   ) as CampaignData | null | undefined;
 
-  if (!campaign) {
+  if (!campaign || !membership) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
         <div className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-sm">
@@ -83,11 +90,18 @@ export default async function DashboardLayout({
         logoUrl={campaign.logo_url}
         primaryColor={campaign.primary_color}
         secondaryColor={campaign.secondary_color}
+        role={membership.role as CampaignRole}
       />
 
       <div className="min-h-screen lg:pl-72">
         {children}
       </div>
+
+      <Toaster
+        position="top-right"
+        richColors
+        closeButton
+      />
     </div>
   );
 }

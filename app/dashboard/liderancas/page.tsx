@@ -6,10 +6,14 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+
 import { LeaderForm } from "./leader-form";
 
+import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/campaign-access";
+import { hasPermission } from "@/lib/permissions";
 
 type Leader = {
   id: string;
@@ -37,13 +41,19 @@ type LeadersPageProps = {
   }>;
 };
 
-const statusLabels: Record<Leader["status"], string> = {
+const statusLabels: Record<
+  Leader["status"],
+  string
+> = {
   prospect: "Em prospecção",
   active: "Ativa",
   inactive: "Inativa",
 };
 
-const statusClasses: Record<Leader["status"], string> = {
+const statusClasses: Record<
+  Leader["status"],
+  string
+> = {
   prospect: "bg-amber-50 text-amber-700",
   active: "bg-emerald-50 text-emerald-700",
   inactive: "bg-slate-100 text-slate-600",
@@ -52,108 +62,116 @@ const statusClasses: Record<Leader["status"], string> = {
 export default async function LeadersPage({
   searchParams,
 }: LeadersPageProps) {
+  const access =
+    await requirePermission("leaders.view");
+
+  const canManageLeaders = hasPermission(
+    access.role,
+    "leaders.manage"
+  );
+
   const { busca = "" } = await searchParams;
 
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: membership } = await supabase
-    .from("campaign_members")
-    .select("campaign_id")
-    .eq("user_id", user!.id)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
   let leaders: Leader[] = [];
   let supporterRelations: SupporterRelation[] = [];
 
-  if (membership) {
-    let leadersQuery = supabase
-      .from("leaders")
-      .select(`
-        id,
-        full_name,
-        whatsapp,
-        phone,
-        email,
-        profession,
-        city,
-        neighborhood,
-        area_of_influence,
-        estimated_supporters,
-        status,
-        created_at,
-        parent_leader_id
-      `)
-      .eq("campaign_id", membership.campaign_id)
-      .eq("is_active", true)
-      .order("created_at", {
-        ascending: false,
-      });
+  let leadersQuery = supabase
+    .from("leaders")
+    .select(`
+      id,
+      full_name,
+      whatsapp,
+      phone,
+      email,
+      profession,
+      city,
+      neighborhood,
+      area_of_influence,
+      estimated_supporters,
+      status,
+      created_at,
+      parent_leader_id
+    `)
+    .eq(
+      "campaign_id",
+      access.campaignId
+    )
+    .eq("is_active", true)
+    .order("created_at", {
+      ascending: false,
+    });
 
-    if (busca.trim()) {
-      const normalizedSearch = busca
-        .trim()
-        .replaceAll(",", " ");
+  if (busca.trim()) {
+    const normalizedSearch = busca
+      .trim()
+      .replaceAll(",", " ");
 
-      leadersQuery = leadersQuery.or(
-        `full_name.ilike.%${normalizedSearch}%,whatsapp.ilike.%${normalizedSearch}%,phone.ilike.%${normalizedSearch}%,city.ilike.%${normalizedSearch}%,neighborhood.ilike.%${normalizedSearch}%,area_of_influence.ilike.%${normalizedSearch}%`
-      );
-    }
-
-    const { data: leadersData, error: leadersError } =
-      await leadersQuery;
-
-    if (leadersError) {
-      console.error(
-        "Erro ao buscar lideranças:",
-        leadersError
-      );
-    }
-
-    leaders = (leadersData ?? []) as Leader[];
-
-    const { data: supportersData, error: supportersError } =
-      await supabase
-        .from("supporters")
-        .select("leader_id")
-        .eq("campaign_id", membership.campaign_id)
-        .eq("is_active", true)
-        .not("leader_id", "is", null);
-
-    if (supportersError) {
-      console.error(
-        "Erro ao contar apoiadores das lideranças:",
-        supportersError
-      );
-    }
-
-    supporterRelations =
-      (supportersData ?? []) as SupporterRelation[];
+    leadersQuery = leadersQuery.or(
+      `full_name.ilike.%${normalizedSearch}%,whatsapp.ilike.%${normalizedSearch}%,phone.ilike.%${normalizedSearch}%,city.ilike.%${normalizedSearch}%,neighborhood.ilike.%${normalizedSearch}%,area_of_influence.ilike.%${normalizedSearch}%`
+    );
   }
 
-  const supporterCountByLeader = supporterRelations.reduce<
-    Record<string, number>
-  >((accumulator, supporter) => {
-    if (!supporter.leader_id) {
+  const {
+    data: leadersData,
+    error: leadersError,
+  } = await leadersQuery;
+
+  if (leadersError) {
+    console.error(
+      "Erro ao buscar lideranças:",
+      leadersError
+    );
+  }
+
+  leaders = (leadersData ?? []) as Leader[];
+
+  const {
+    data: supportersData,
+    error: supportersError,
+  } = await supabase
+    .from("supporters")
+    .select("leader_id")
+    .eq(
+      "campaign_id",
+      access.campaignId
+    )
+    .eq("is_active", true)
+    .not("leader_id", "is", null);
+
+  if (supportersError) {
+    console.error(
+      "Erro ao contar apoiadores das lideranças:",
+      supportersError
+    );
+  }
+
+  supporterRelations =
+    (supportersData ?? []) as SupporterRelation[];
+
+  const supporterCountByLeader =
+    supporterRelations.reduce<
+      Record<string, number>
+    >((accumulator, supporter) => {
+      if (!supporter.leader_id) {
+        return accumulator;
+      }
+
+      accumulator[supporter.leader_id] =
+        (accumulator[
+          supporter.leader_id
+        ] ?? 0) + 1;
+
       return accumulator;
-    }
-
-    accumulator[supporter.leader_id] =
-      (accumulator[supporter.leader_id] ?? 0) + 1;
-
-    return accumulator;
-  }, {});
+    }, {});
 
   const activeLeaders = leaders.filter(
     (leader) => leader.status === "active"
   ).length;
 
-  const linkedSupporters = supporterRelations.length;
+  const linkedSupporters =
+    supporterRelations.length;
 
   return (
     <main className="px-5 pb-12 pt-20 sm:px-8 lg:px-10 lg:pt-10">
@@ -169,8 +187,8 @@ export default async function LeadersPage({
             </h1>
 
             <p className="mt-2 text-slate-500">
-              Organize as pessoas responsáveis pela mobilização
-              da campanha.
+              Organize as pessoas responsáveis pela
+              mobilização da campanha.
             </p>
           </div>
 
@@ -225,32 +243,45 @@ export default async function LeadersPage({
           </div>
         </header>
 
-        <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#081B33]/5 text-[#081B33]">
-              <UserPlus size={21} />
+        {canManageLeaders ? (
+          <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#081B33]/5 text-[#081B33]">
+                <UserPlus size={21} />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-semibold text-[#081B33]">
+                  Nova liderança
+                </h2>
+
+                <p className="text-sm text-slate-500">
+                  Cadastre uma pessoa responsável pela
+                  mobilização.
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h2 className="text-xl font-semibold text-[#081B33]">
-                Nova liderança
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Cadastre uma pessoa responsável pela mobilização.
-              </p>
+            <div className="mt-7">
+              <LeaderForm
+                parentLeaders={leaders.map(
+                  (leader) => ({
+                    id: leader.id,
+                    full_name:
+                      leader.full_name,
+                  })
+                )}
+              />
             </div>
+          </section>
+        ) : (
+          <div className="mt-8 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+            <p className="text-sm font-medium text-blue-800">
+              Você possui acesso somente para
+              visualização das lideranças.
+            </p>
           </div>
-
-          <div className="mt-7">
-            <LeaderForm
-              parentLeaders={leaders.map((leader) => ({
-                id: leader.id,
-                full_name: leader.full_name,
-              }))}
-            />
-          </div>
-        </section>
+        )}
 
         <section className="mt-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -260,7 +291,8 @@ export default async function LeadersPage({
               </h2>
 
               <p className="mt-1 text-sm text-slate-500">
-                Consulte as lideranças e seus apoiadores.
+                Consulte as lideranças e seus
+                apoiadores.
               </p>
             </div>
 
@@ -291,8 +323,9 @@ export default async function LeadersPage({
               </h3>
 
               <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">
-                Cadastre a primeira liderança ou altere os termos
-                da busca.
+                {canManageLeaders
+                  ? "Cadastre a primeira liderança ou altere os termos da busca."
+                  : "Altere os termos da busca para localizar outra liderança."}
               </p>
             </div>
           ) : (
@@ -304,11 +337,16 @@ export default async function LeadersPage({
                   leader.email;
 
                 const linkedCount =
-                  supporterCountByLeader[leader.id] ?? 0;
+                  supporterCountByLeader[
+                    leader.id
+                  ] ?? 0;
 
-                const parentLeader = leaders.find(
-                  (item) => item.id === leader.parent_leader_id
-                );
+                const parentLeader =
+                  leaders.find(
+                    (item) =>
+                      item.id ===
+                      leader.parent_leader_id
+                  );
 
                 return (
                   <Link
@@ -339,10 +377,16 @@ export default async function LeadersPage({
 
                       <span
                         className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
-                          statusClasses[leader.status]
+                          statusClasses[
+                            leader.status
+                          ]
                         }`}
                       >
-                        {statusLabels[leader.status]}
+                        {
+                          statusLabels[
+                            leader.status
+                          ]
+                        }
                       </span>
                     </div>
 
@@ -354,7 +398,8 @@ export default async function LeadersPage({
                         />
 
                         <span className="truncate">
-                          {contact || "Contato não informado"}
+                          {contact ||
+                            "Contato não informado"}
                         </span>
                       </div>
 
@@ -365,7 +410,10 @@ export default async function LeadersPage({
                         />
 
                         <span className="truncate">
-                          {[leader.neighborhood, leader.city]
+                          {[
+                            leader.neighborhood,
+                            leader.city,
+                          ]
                             .filter(Boolean)
                             .join(", ") ||
                             "Localização não informada"}
@@ -390,7 +438,9 @@ export default async function LeadersPage({
                         </p>
 
                         <p className="mt-1 font-semibold text-[#081B33]">
-                          {leader.estimated_supporters}
+                          {
+                            leader.estimated_supporters
+                          }
                         </p>
                       </div>
 
@@ -400,7 +450,8 @@ export default async function LeadersPage({
                         </p>
 
                         <p className="mt-1 truncate font-semibold text-[#081B33]">
-                          {parentLeader?.full_name || "Direta"}
+                          {parentLeader?.full_name ||
+                            "Direta"}
                         </p>
                       </div>
                     </div>

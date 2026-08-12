@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { checkPermission } from "@/lib/auth/campaign-access";
 import { createClient } from "@/lib/supabase/server";
 
 export type CrmStage =
@@ -24,6 +26,17 @@ export async function updateSupporterCrmStage(
   supporterId: string,
   crmStage: CrmStage
 ) {
+  const { allowed } =
+    await checkPermission("crm.manage");
+
+  if (!allowed) {
+    return {
+      success: false,
+      error:
+        "Você não possui permissão para alterar o CRM.",
+    };
+  }
+
   const supabase = await createClient();
 
   const {
@@ -70,7 +83,10 @@ export async function updateSupporterCrmStage(
     .from("supporters")
     .select("id, crm_stage")
     .eq("id", supporterId)
-    .eq("campaign_id", membership.campaign_id)
+    .eq(
+      "campaign_id",
+      membership.campaign_id
+    )
     .eq("is_active", true)
     .maybeSingle();
 
@@ -82,48 +98,55 @@ export async function updateSupporterCrmStage(
   }
 
   const supporterUpdates: {
-  crm_stage: CrmStage;
-  crm_stage_updated_at: string;
-  status?: "lead" | "supporter" | "volunteer";
-  is_leader?: boolean;
-} = {
-  crm_stage: crmStage,
-  crm_stage_updated_at: new Date().toISOString(),
-};
+    crm_stage: CrmStage;
+    crm_stage_updated_at: string;
+    status?:
+      | "lead"
+      | "supporter"
+      | "volunteer";
+    is_leader?: boolean;
+  } = {
+    crm_stage: crmStage,
+    crm_stage_updated_at:
+      new Date().toISOString(),
+  };
 
-if (crmStage === "new") {
-  supporterUpdates.status = "lead";
-  supporterUpdates.is_leader = false;
-}
+  if (crmStage === "new") {
+    supporterUpdates.status = "lead";
+    supporterUpdates.is_leader = false;
+  }
 
-if (
-  crmStage === "contact" ||
-  crmStage === "negotiation"
-) {
-  supporterUpdates.status = "lead";
-  supporterUpdates.is_leader = false;
-}
+  if (
+    crmStage === "contact" ||
+    crmStage === "negotiation"
+  ) {
+    supporterUpdates.status = "lead";
+    supporterUpdates.is_leader = false;
+  }
 
-if (crmStage === "confirmed") {
-  supporterUpdates.status = "supporter";
-  supporterUpdates.is_leader = false;
-}
+  if (crmStage === "confirmed") {
+    supporterUpdates.status = "supporter";
+    supporterUpdates.is_leader = false;
+  }
 
-if (crmStage === "volunteer") {
-  supporterUpdates.status = "volunteer";
-  supporterUpdates.is_leader = false;
-}
+  if (crmStage === "volunteer") {
+    supporterUpdates.status = "volunteer";
+    supporterUpdates.is_leader = false;
+  }
 
-if (crmStage === "leader") {
-  supporterUpdates.status = "supporter";
-  supporterUpdates.is_leader = true;
-}
+  if (crmStage === "leader") {
+    supporterUpdates.status = "supporter";
+    supporterUpdates.is_leader = true;
+  }
 
-const { error: updateError } = await supabase
-  .from("supporters")
-  .update(supporterUpdates)
-  .eq("id", supporterId)
-  .eq("campaign_id", membership.campaign_id);
+  const { error: updateError } = await supabase
+    .from("supporters")
+    .update(supporterUpdates)
+    .eq("id", supporterId)
+    .eq(
+      "campaign_id",
+      membership.campaign_id
+    );
 
   if (updateError) {
     console.error(
@@ -133,20 +156,25 @@ const { error: updateError } = await supabase
 
     return {
       success: false,
-      error: "Não foi possível atualizar a etapa.",
+      error:
+        "Não foi possível atualizar a etapa.",
     };
   }
 
-  await supabase.from("supporter_activities").insert({
-    campaign_id: membership.campaign_id,
-    supporter_id: supporterId,
-    activity_type: "crm_stage_changed",
-    title: "Etapa do CRM alterada",
-    description: `Etapa alterada de ${
-      supporter.crm_stage ?? "new"
-    } para ${crmStage}.`,
-    created_by: user.id,
-  });
+  await supabase
+    .from("supporter_activities")
+    .insert({
+      campaign_id:
+        membership.campaign_id,
+      supporter_id: supporterId,
+      activity_type:
+        "crm_stage_changed",
+      title: "Etapa do CRM alterada",
+      description: `Etapa alterada de ${
+        supporter.crm_stage ?? "new"
+      } para ${crmStage}.`,
+      created_by: user.id,
+    });
 
   revalidatePath("/dashboard/crm");
   revalidatePath("/dashboard/apoiadores");

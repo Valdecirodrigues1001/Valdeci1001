@@ -19,10 +19,18 @@ import {
   Users,
   X,
 } from "lucide-react";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+
 import { logout } from "@/app/dashboard/actions";
+
+import {
+  hasPermission,
+  type CampaignRole,
+  type Permission,
+} from "@/lib/permissions";
 
 type SidebarProps = {
   campaignName: string;
@@ -31,80 +39,98 @@ type SidebarProps = {
   logoUrl?: string | null;
   primaryColor: string;
   secondaryColor: string;
+  role: CampaignRole;
 };
 
-const navigation = [
+const navigation: Array<{
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  permission: Permission;
+}> = [
   {
     label: "Visão geral",
     href: "/dashboard",
     icon: Gauge,
+    permission: "dashboard.view",
   },
   {
     label: "Apoiadores",
     href: "/dashboard/apoiadores",
     icon: Users,
+    permission: "supporters.view",
   },
   {
-  label: "CRM político",
-  href: "/dashboard/crm",
-  icon: KanbanSquare,
-},
+    label: "CRM político",
+    href: "/dashboard/crm",
+    icon: KanbanSquare,
+    permission: "crm.view",
+  },
   {
     label: "Lideranças",
     href: "/dashboard/liderancas",
     icon: Handshake,
+    permission: "leaders.view",
   },
   {
     label: "Agenda",
     href: "/dashboard/agenda",
     icon: CalendarDays,
+    permission: "events.view",
   },
   {
     label: "Equipe",
     href: "/dashboard/equipe",
     icon: UserRoundCog,
+    permission: "team.view",
   },
   {
     label: "Mobilização",
     href: "/dashboard/mobilizacao",
     icon: Megaphone,
+    permission: "mobilization.view",
   },
-
   {
-  label: "Propostas",
-  href: "/dashboard/propostas",
-  icon: Target,
-},
+    label: "Propostas",
+    href: "/dashboard/propostas",
+    icon: Target,
+    permission: "proposals.view",
+  },
   {
     label: "Materiais",
     href: "/dashboard/materiais",
     icon: Images,
+    permission: "materials.view",
   },
-{
-  label: "Notícias",
-  href: "/dashboard/noticias",
-  icon: Newspaper,
-},
-  
+  {
+    label: "Notícias",
+    href: "/dashboard/noticias",
+    icon: Newspaper,
+    permission: "news.view",
+  },
   {
     label: "Comunicação",
     href: "/dashboard/comunicacao",
     icon: FileText,
+    permission: "communication.view",
   },
   {
     label: "Landing Page",
     href: "/dashboard/landing-page",
     icon: House,
+    permission: "landing.view",
   },
   {
     label: "Relatórios",
     href: "/dashboard/relatorios",
     icon: ChartNoAxesCombined,
+    permission: "reports.view",
   },
   {
     label: "Configurações",
     href: "/dashboard/configuracoes",
     icon: Settings,
+    permission: "settings.view",
   },
 ];
 
@@ -115,9 +141,15 @@ export function Sidebar({
   logoUrl,
   primaryColor,
   secondaryColor,
+  role,
 }: SidebarProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  const allowedNavigation = navigation.filter(
+    (item) =>
+      hasPermission(role, item.permission)
+  );
 
   function isActive(href: string) {
     if (href === "/dashboard") {
@@ -172,7 +204,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
-        {navigation.map((item) => {
+        {allowedNavigation.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
 
@@ -185,11 +217,13 @@ export function Sidebar({
               style={
                 active
                   ? {
-                      backgroundColor: secondaryColor,
+                      backgroundColor:
+                        secondaryColor,
                       color: primaryColor,
                     }
                   : {
-                      color: "rgba(255,255,255,0.72)",
+                      color:
+                        "rgba(255,255,255,0.72)",
                     }
               }
             >
@@ -231,7 +265,9 @@ export function Sidebar({
 
       <aside
         className="fixed inset-y-0 left-0 z-20 hidden w-72 lg:block"
-        style={{ backgroundColor: primaryColor }}
+        style={{
+          backgroundColor: primaryColor,
+        }}
       >
         {sidebarContent}
       </aside>
@@ -247,7 +283,9 @@ export function Sidebar({
 
           <aside
             className="relative h-full w-[86%] max-w-72"
-            style={{ backgroundColor: primaryColor }}
+            style={{
+              backgroundColor: primaryColor,
+            }}
           >
             <button
               type="button"

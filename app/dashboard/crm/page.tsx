@@ -13,10 +13,14 @@ import {
   UserRoundCheck,
   Users,
 } from "lucide-react";
+
 import Link from "next/link";
+
 import { CrmStageSelect } from "./crm-stage-select";
-import { redirect } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/server";
+import { requirePermission } from "@/lib/auth/campaign-access";
+import { hasPermission } from "@/lib/permissions";
 
 type CrmStage =
   | "new"
@@ -83,37 +87,43 @@ const crmStages: StageConfig[] = [
   {
     id: "new",
     label: "Novo contato",
-    description: "Cadastros que ainda não foram trabalhados.",
+    description:
+      "Cadastros que ainda não foram trabalhados.",
     icon: Sparkles,
   },
   {
     id: "contact",
     label: "Primeiro contato",
-    description: "Pessoas que já receberam a primeira abordagem.",
+    description:
+      "Pessoas que já receberam a primeira abordagem.",
     icon: MessageCircle,
   },
   {
     id: "negotiation",
     label: "Em acompanhamento",
-    description: "Contatos em processo de relacionamento.",
+    description:
+      "Contatos em processo de relacionamento.",
     icon: Handshake,
   },
   {
     id: "confirmed",
     label: "Apoio confirmado",
-    description: "Pessoas que confirmaram apoio à campanha.",
+    description:
+      "Pessoas que confirmaram apoio à campanha.",
     icon: CheckCircle2,
   },
   {
     id: "volunteer",
     label: "Voluntários",
-    description: "Apoiadores disponíveis para ajudar na campanha.",
+    description:
+      "Apoiadores disponíveis para ajudar na campanha.",
     icon: UserRoundCheck,
   },
   {
     id: "leader",
     label: "Lideranças",
-    description: "Pessoas com influência e capacidade de mobilização.",
+    description:
+      "Pessoas com influência e capacidade de mobilização.",
     icon: Crown,
   },
 ];
@@ -125,7 +135,9 @@ function formatDateTime(value: string) {
   }).format(new Date(value));
 }
 
-function isContactOverdue(value: string | null) {
+function isContactOverdue(
+  value: string | null
+) {
   if (!value) {
     return false;
   }
@@ -136,37 +148,39 @@ function isContactOverdue(value: string | null) {
 export default async function CrmPage({
   searchParams,
 }: CrmPageProps) {
+  /*
+   * Protege a página.
+   * Apenas usuários com crm.view podem acessar.
+   */
+  const access =
+    await requirePermission("crm.view");
+
+  /*
+   * Define se o usuário pode alterar
+   * etapas e informações do CRM.
+   */
+  const canManageCrm = hasPermission(
+    access.role,
+    "crm.manage"
+  );
+
   const { busca = "" } = await searchParams;
 
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  const {
-    data: membership,
-    error: membershipError,
-  } = await supabase
-    .from("campaign_members")
-    .select("campaign_id")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (membershipError || !membership) {
-    redirect("/login");
-  }
-
   const [
-    { data: supportersData, error: supportersError },
-    { data: teamsData, error: teamsError },
-    { data: membersData, error: membersError },
+    {
+      data: supportersData,
+      error: supportersError,
+    },
+    {
+      data: teamsData,
+      error: teamsError,
+    },
+    {
+      data: membersData,
+      error: membersError,
+    },
   ] = await Promise.all([
     supabase
       .from("supporters")
@@ -187,7 +201,10 @@ export default async function CrmPage({
         assigned_member_id,
         created_at
       `)
-      .eq("campaign_id", membership.campaign_id)
+      .eq(
+        "campaign_id",
+        access.campaignId
+      )
       .eq("is_active", true)
       .order("created_at", {
         ascending: false,
@@ -199,7 +216,10 @@ export default async function CrmPage({
         id,
         name
       `)
-      .eq("campaign_id", membership.campaign_id)
+      .eq(
+        "campaign_id",
+        access.campaignId
+      )
       .eq("is_active", true)
       .order("name"),
 
@@ -210,7 +230,10 @@ export default async function CrmPage({
         user_id,
         job_title
       `)
-      .eq("campaign_id", membership.campaign_id)
+      .eq(
+        "campaign_id",
+        access.campaignId
+      )
       .eq("is_active", true),
   ]);
 
@@ -238,8 +261,11 @@ export default async function CrmPage({
   const supporters =
     (supportersData ?? []) as SupporterRow[];
 
-  const teams = (teamsData ?? []) as TeamRow[];
-  const members = (membersData ?? []) as MemberRow[];
+  const teams =
+    (teamsData ?? []) as TeamRow[];
+
+  const members =
+    (membersData ?? []) as MemberRow[];
 
   const profileIds = members
     .map((member) => member.user_id)
@@ -273,7 +299,10 @@ export default async function CrmPage({
     (profilesData ?? []) as ProfileRow[];
 
   const teamMap = new Map(
-    teams.map((team) => [team.id, team.name])
+    teams.map((team) => [
+      team.id,
+      team.name,
+    ])
   );
 
   const profileMap = new Map(
@@ -299,33 +328,43 @@ export default async function CrmPage({
     .trim()
     .toLocaleLowerCase("pt-BR");
 
-  const filteredSupporters = normalizedSearch
-    ? supporters.filter((supporter) => {
-        const searchableValues = [
-          supporter.full_name,
-          supporter.whatsapp,
-          supporter.phone,
-          supporter.email,
-          supporter.city,
-          supporter.neighborhood,
-          supporter.profession,
-          supporter.team_id
-            ? teamMap.get(supporter.team_id)
-            : null,
-          supporter.assigned_member_id
-            ? memberMap.get(
-                supporter.assigned_member_id
-              )?.name
-            : null,
-        ];
+  const filteredSupporters =
+    normalizedSearch
+      ? supporters.filter((supporter) => {
+          const searchableValues = [
+            supporter.full_name,
+            supporter.whatsapp,
+            supporter.phone,
+            supporter.email,
+            supporter.city,
+            supporter.neighborhood,
+            supporter.profession,
 
-        return searchableValues.some((value) =>
-          value
-            ?.toLocaleLowerCase("pt-BR")
-            .includes(normalizedSearch)
-        );
-      })
-    : supporters;
+            supporter.team_id
+              ? teamMap.get(
+                  supporter.team_id
+                )
+              : null,
+
+            supporter.assigned_member_id
+              ? memberMap.get(
+                  supporter.assigned_member_id
+                )?.name
+              : null,
+          ];
+
+          return searchableValues.some(
+            (value) =>
+              value
+                ?.toLocaleLowerCase(
+                  "pt-BR"
+                )
+                .includes(
+                  normalizedSearch
+                )
+          );
+        })
+      : supporters;
 
   const supportersByStage = new Map<
     CrmStage,
@@ -333,26 +372,32 @@ export default async function CrmPage({
   >(
     crmStages.map((stage) => [
       stage.id,
+
       filteredSupporters.filter(
         (supporter) =>
-          (supporter.crm_stage ?? "new") ===
-          stage.id
+          (supporter.crm_stage ??
+            "new") === stage.id
       ),
     ])
   );
 
-  const totalSupporters = supporters.length;
+  const totalSupporters =
+    supporters.length;
 
-  const confirmedSupporters = supporters.filter(
-    (supporter) =>
-      supporter.crm_stage === "confirmed" ||
-      supporter.crm_stage === "volunteer" ||
-      supporter.crm_stage === "leader"
-  ).length;
+  const confirmedSupporters =
+    supporters.filter(
+      (supporter) =>
+        supporter.crm_stage ===
+          "confirmed" ||
+        supporter.crm_stage ===
+          "volunteer" ||
+        supporter.crm_stage === "leader"
+    ).length;
 
   const volunteers = supporters.filter(
     (supporter) =>
-      supporter.crm_stage === "volunteer" ||
+      supporter.crm_stage ===
+        "volunteer" ||
       supporter.status === "volunteer"
   ).length;
 
@@ -362,12 +407,12 @@ export default async function CrmPage({
       supporter.is_leader
   ).length;
 
-  const overdueContacts = supporters.filter(
-    (supporter) =>
+  const overdueContacts =
+    supporters.filter((supporter) =>
       isContactOverdue(
         supporter.next_contact_at
       )
-  ).length;
+    ).length;
 
   const conversionRate =
     totalSupporters > 0
@@ -385,6 +430,7 @@ export default async function CrmPage({
           <div>
             <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-[#D4AF37]">
               <KanbanSquare size={18} />
+
               CRM político
             </div>
 
@@ -560,14 +606,24 @@ export default async function CrmPage({
             </div>
           ) : null}
 
+          {!canManageCrm ? (
+            <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 px-5 py-4">
+              <p className="text-sm font-medium text-blue-800">
+                Você possui acesso somente para
+                visualização do CRM.
+              </p>
+            </div>
+          ) : null}
+
           <div className="mt-6 overflow-x-auto pb-5">
             <div className="grid min-w-[1860px] grid-cols-6 gap-4">
               {crmStages.map((stage) => {
                 const StageIcon = stage.icon;
 
                 const stageSupporters =
-                  supportersByStage.get(stage.id) ??
-                  [];
+                  supportersByStage.get(
+                    stage.id
+                  ) ?? [];
 
                 return (
                   <div
@@ -578,7 +634,9 @@ export default async function CrmPage({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#081B33] shadow-sm">
-                            <StageIcon size={19} />
+                            <StageIcon
+                              size={19}
+                            />
                           </div>
 
                           <div className="min-w-0">
@@ -587,13 +645,17 @@ export default async function CrmPage({
                             </h3>
 
                             <p className="mt-1 text-xs leading-5 text-slate-500">
-                              {stage.description}
+                              {
+                                stage.description
+                              }
                             </p>
                           </div>
                         </div>
 
                         <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full bg-white px-2 text-xs font-bold text-[#081B33] shadow-sm">
-                          {stageSupporters.length}
+                          {
+                            stageSupporters.length
+                          }
                         </span>
                       </div>
                     </div>
@@ -640,7 +702,9 @@ export default async function CrmPage({
 
                             return (
                               <Link
-                                key={supporter.id}
+                                key={
+                                  supporter.id
+                                }
                                 href={`/dashboard/apoiadores/${supporter.id}`}
                                 className="block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
                               >
@@ -669,12 +733,16 @@ export default async function CrmPage({
                                   <div className="flex items-center gap-2 text-xs text-slate-500">
                                     {supporter.whatsapp ? (
                                       <MessageCircle
-                                        size={15}
+                                        size={
+                                          15
+                                        }
                                         className="shrink-0 text-slate-400"
                                       />
                                     ) : (
                                       <Phone
-                                        size={15}
+                                        size={
+                                          15
+                                        }
                                         className="shrink-0 text-slate-400"
                                       />
                                     )}
@@ -696,8 +764,12 @@ export default async function CrmPage({
                                         supporter.neighborhood,
                                         supporter.city,
                                       ]
-                                        .filter(Boolean)
-                                        .join(", ") ||
+                                        .filter(
+                                          Boolean
+                                        )
+                                        .join(
+                                          ", "
+                                        ) ||
                                         "Localização não informada"}
                                     </span>
                                   </div>
@@ -705,12 +777,16 @@ export default async function CrmPage({
                                   {teamName ? (
                                     <div className="flex items-center gap-2 text-xs text-slate-500">
                                       <Users
-                                        size={15}
+                                        size={
+                                          15
+                                        }
                                         className="shrink-0 text-slate-400"
                                       />
 
                                       <span className="truncate">
-                                        {teamName}
+                                        {
+                                          teamName
+                                        }
                                       </span>
                                     </div>
                                   ) : null}
@@ -718,7 +794,9 @@ export default async function CrmPage({
                                   {responsible ? (
                                     <div className="flex items-center gap-2 text-xs text-slate-500">
                                       <UserRoundCheck
-                                        size={15}
+                                        size={
+                                          15
+                                        }
                                         className="shrink-0 text-slate-400"
                                       />
 
@@ -754,12 +832,27 @@ export default async function CrmPage({
                                     </span>
                                   </div>
                                 ) : null}
-                                <div className="mt-4">
-  <CrmStageSelect
-    supporterId={supporter.id}
-    currentStage={supporter.crm_stage ?? "new"}
-  />
-</div>
+
+                                {canManageCrm ? (
+                                  <div className="mt-4">
+                                    <CrmStageSelect
+                                      supporterId={
+                                        supporter.id
+                                      }
+                                      currentStage={
+                                        supporter.crm_stage ??
+                                        "new"
+                                      }
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="mt-4 rounded-xl bg-slate-50 px-3 py-2">
+                                    <p className="text-xs font-medium text-slate-500">
+                                      Somente
+                                      visualização
+                                    </p>
+                                  </div>
+                                )}
 
                                 <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
                                   <span className="text-[11px] text-slate-400">
@@ -775,7 +868,9 @@ export default async function CrmPage({
 
                                   {supporter.is_leader ? (
                                     <Crown
-                                      size={15}
+                                      size={
+                                        15
+                                      }
                                       className="text-[#D4AF37]"
                                     />
                                   ) : null}

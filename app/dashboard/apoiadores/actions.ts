@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { checkPermission } from "@/lib/auth/campaign-access";
 import { createClient } from "@/lib/supabase/server";
 
 export type SupporterActionState = {
@@ -28,17 +30,24 @@ export async function createSupporter(
   _previousState: SupporterActionState,
   formData: FormData
 ): Promise<SupporterActionState> {
-  const supabase = await createClient();
+  /*
+   * Segurança:
+   * somente usuários com supporters.manage
+   * podem cadastrar apoiadores pelo painel.
+   */
+  const { allowed, access } =
+    await checkPermission(
+      "supporters.manage"
+    );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!allowed || !access) {
     return {
-      error: "Sua sessão expirou. Entre novamente.",
+      error:
+        "Você não possui permissão para cadastrar apoiadores.",
     };
   }
+
+  const supabase = await createClient();
 
   const fullName = String(
     formData.get("full_name") ?? ""
@@ -101,7 +110,8 @@ export async function createSupporter(
 
   if (!fullName) {
     return {
-      error: "Informe o nome completo do apoiador.",
+      error:
+        "Informe o nome completo do apoiador.",
     };
   }
 
@@ -111,7 +121,8 @@ export async function createSupporter(
     )
   ) {
     return {
-      error: "A situação selecionada é inválida.",
+      error:
+        "A situação selecionada é inválida.",
     };
   }
 
@@ -121,7 +132,8 @@ export async function createSupporter(
     )
   ) {
     return {
-      error: "A origem selecionada é inválida.",
+      error:
+        "A origem selecionada é inválida.",
     };
   }
 
@@ -132,7 +144,11 @@ export async function createSupporter(
       nextContactValue
     );
 
-    if (Number.isNaN(nextContactDate.getTime())) {
+    if (
+      Number.isNaN(
+        nextContactDate.getTime()
+      )
+    ) {
       return {
         error:
           "A data do próximo contato é inválida.",
@@ -143,27 +159,9 @@ export async function createSupporter(
       nextContactDate.toISOString();
   }
 
-  const {
-    data: membership,
-    error: membershipError,
-  } = await supabase
-    .from("campaign_members")
-    .select(`
-      id,
-      campaign_id
-    `)
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
-  if (membershipError || !membership) {
-    return {
-      error:
-        "Não foi possível identificar a campanha.",
-    };
-  }
-
+  /*
+   * Valida a área.
+   */
   if (areaId) {
     const { data: area } = await supabase
       .from("campaign_areas")
@@ -171,8 +169,9 @@ export async function createSupporter(
       .eq("id", areaId)
       .eq(
         "campaign_id",
-        membership.campaign_id
+        access.campaignId
       )
+      .eq("is_active", true)
       .maybeSingle();
 
     if (!area) {
@@ -183,6 +182,9 @@ export async function createSupporter(
     }
   }
 
+  /*
+   * Valida a equipe.
+   */
   if (teamId) {
     const { data: team } = await supabase
       .from("mobilization_teams")
@@ -193,8 +195,9 @@ export async function createSupporter(
       .eq("id", teamId)
       .eq(
         "campaign_id",
-        membership.campaign_id
+        access.campaignId
       )
+      .eq("is_active", true)
       .maybeSingle();
 
     if (!team) {
@@ -216,15 +219,21 @@ export async function createSupporter(
     }
   }
 
+  /*
+   * Valida o integrante responsável.
+   */
   if (assignedMemberId) {
     const { data: assignedMember } =
       await supabase
         .from("campaign_members")
         .select("id")
-        .eq("id", assignedMemberId)
+        .eq(
+          "id",
+          assignedMemberId
+        )
         .eq(
           "campaign_id",
-          membership.campaign_id
+          access.campaignId
         )
         .eq("is_active", true)
         .maybeSingle();
@@ -242,25 +251,54 @@ export async function createSupporter(
       .from("supporters")
       .insert({
         campaign_id:
-          membership.campaign_id,
+          access.campaignId,
+
         full_name: fullName,
-        whatsapp: whatsapp || null,
-        phone: phone || null,
-        email: email || null,
-        city: city || null,
-        neighborhood: neighborhood || null,
-        profession: profession || null,
-        notes: notes || null,
+
+        whatsapp:
+          whatsapp || null,
+
+        phone:
+          phone || null,
+
+        email:
+          email || null,
+
+        city:
+          city || null,
+
+        neighborhood:
+          neighborhood || null,
+
+        profession:
+          profession || null,
+
+        notes:
+          notes || null,
+
         status,
         origin,
-        area_id: areaId || null,
-        team_id: teamId || null,
+
+        area_id:
+          areaId || null,
+
+        team_id:
+          teamId || null,
+
         assigned_member_id:
           assignedMemberId || null,
-        is_leader: isLeader,
-        next_contact_at: nextContactAt,
-        created_by: user.id,
-        is_active: true,
+
+        is_leader:
+          isLeader,
+
+        next_contact_at:
+          nextContactAt,
+
+        created_by:
+          access.userId,
+
+        is_active:
+          true,
       })
       .select("id")
       .single();
@@ -268,7 +306,12 @@ export async function createSupporter(
   if (error || !supporter) {
     console.error(
       "Erro ao cadastrar apoiador:",
-      error
+      {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      }
     );
 
     return {
@@ -277,9 +320,10 @@ export async function createSupporter(
     };
   }
 
-  const activityDescriptions: string[] = [
-    "Cadastro realizado pelo painel da campanha.",
-  ];
+  const activityDescriptions: string[] =
+    [
+      "Cadastro realizado pelo painel da campanha.",
+    ];
 
   if (areaId) {
     activityDescriptions.push(
@@ -310,13 +354,24 @@ export async function createSupporter(
       .from("supporter_activities")
       .insert({
         campaign_id:
-          membership.campaign_id,
-        supporter_id: supporter.id,
-        activity_type: "created",
-        title: "Apoiador cadastrado",
+          access.campaignId,
+
+        supporter_id:
+          supporter.id,
+
+        activity_type:
+          "created",
+
+        title:
+          "Apoiador cadastrado",
+
         description:
-          activityDescriptions.join(" "),
-        created_by: user.id,
+          activityDescriptions.join(
+            " "
+          ),
+
+        created_by:
+          access.userId,
       });
 
   if (activityError) {
@@ -327,8 +382,15 @@ export async function createSupporter(
   }
 
   revalidatePath("/dashboard");
-  revalidatePath("/dashboard/apoiadores");
-  revalidatePath("/dashboard/mobilizacao");
+  revalidatePath(
+    "/dashboard/apoiadores"
+  );
+  revalidatePath(
+    "/dashboard/mobilizacao"
+  );
+  revalidatePath(
+    "/dashboard/crm"
+  );
 
   return {
     success:
