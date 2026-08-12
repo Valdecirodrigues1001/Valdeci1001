@@ -14,6 +14,22 @@ type CampaignContext = {
   campaignId: string;
 };
 
+type UploadedImage = {
+  url: string;
+  storagePath: string;
+};
+
+const MEDIA_BUCKET = "campaign-media";
+
+const MAX_IMAGE_SIZE =
+  5 * 1024 * 1024; // 5 MB
+
+const allowedImageTypes = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
 function getString(
   formData: FormData,
   field: string
@@ -29,18 +45,62 @@ function getOptionalString(
   formData: FormData,
   field: string
 ): string | null {
-  const value = getString(formData, field);
+  const value = getString(
+    formData,
+    field
+  );
 
   return value || null;
 }
 
-function slugify(value: string): string {
+function getBoolean(
+  formData: FormData,
+  field: string
+): boolean {
+  const value =
+    formData.get(field);
+
+  return (
+    value === "true" ||
+    value === "1" ||
+    value === "on"
+  );
+}
+
+function getImageFile(
+  formData: FormData
+): File | null {
+  const file =
+    formData.get(
+      "cover_image_file"
+    );
+
+  if (!(file instanceof File)) {
+    return null;
+  }
+
+  if (file.size === 0) {
+    return null;
+  }
+
+  return file;
+}
+
+function slugify(
+  value: string
+): string {
   return value
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(
+      /[\u0300-\u036f]/g,
+      ""
+    )
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(
+      /[^a-z0-9\s-]/g,
+      ""
+    )
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
@@ -49,9 +109,14 @@ function slugify(value: string): string {
 function getPostStatus(
   formData: FormData
 ): PostStatus {
-  const status = getString(formData, "status");
+  const status =
+    getString(
+      formData,
+      "status"
+    );
 
-  return status === "published"
+  return status ===
+    "published"
     ? "published"
     : "draft";
 }
@@ -59,20 +124,23 @@ function getPostStatus(
 function validateEditorContent(
   formData: FormData
 ): string | null {
-  const content = getOptionalString(
-    formData,
-    "content"
-  );
+  const content =
+    getOptionalString(
+      formData,
+      "content"
+    );
 
   if (!content) {
     return null;
   }
 
   try {
-    const parsed = JSON.parse(content);
+    const parsed =
+      JSON.parse(content);
 
     if (
-      typeof parsed !== "object" ||
+      typeof parsed !==
+        "object" ||
       parsed === null ||
       parsed.type !== "doc"
     ) {
@@ -85,20 +153,53 @@ function validateEditorContent(
   return null;
 }
 
+function validateImageFile(
+  file: File | null
+): string | null {
+  if (!file) {
+    return null;
+  }
+
+  if (
+    !allowedImageTypes.includes(
+      file.type
+    )
+  ) {
+    return "A imagem deve estar no formato JPG, PNG ou WEBP.";
+  }
+
+  if (
+    file.size >
+    MAX_IMAGE_SIZE
+  ) {
+    return "A imagem deve ter no máximo 5 MB.";
+  }
+
+  return null;
+}
+
 function validatePost(
   formData: FormData
 ): PostActionState | null {
-  const title = getString(
-    formData,
-    "title"
-  );
+  const title =
+    getString(
+      formData,
+      "title"
+    );
 
-  const excerpt = getOptionalString(
-    formData,
-    "excerpt"
-  );
+  const excerpt =
+    getOptionalString(
+      formData,
+      "excerpt"
+    );
 
-  const errors: Record<string, string> = {};
+  const imageFile =
+    getImageFile(formData);
+
+  const errors: Record<
+    string,
+    string
+  > = {};
 
   if (title.length < 3) {
     errors.title =
@@ -110,19 +211,38 @@ function validatePost(
       "O título deve ter no máximo 180 caracteres.";
   }
 
-  if (excerpt && excerpt.length > 500) {
+  if (
+    excerpt &&
+    excerpt.length > 500
+  ) {
     errors.excerpt =
       "O resumo deve ter no máximo 500 caracteres.";
   }
 
   const contentError =
-    validateEditorContent(formData);
+    validateEditorContent(
+      formData
+    );
 
   if (contentError) {
-    errors.content = contentError;
+    errors.content =
+      contentError;
   }
 
-  if (Object.keys(errors).length > 0) {
+  const imageError =
+    validateImageFile(
+      imageFile
+    );
+
+  if (imageError) {
+    errors.cover_image =
+      imageError;
+  }
+
+  if (
+    Object.keys(errors)
+      .length > 0
+  ) {
     return {
       success: false,
       message:
@@ -135,14 +255,19 @@ function validatePost(
 }
 
 async function getCampaignContext(): Promise<CampaignContext> {
-  const supabase = await createClient();
+  const supabase =
+    await createClient();
 
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } =
+    await supabase.auth.getUser();
 
-  if (authError || !user) {
+  if (
+    authError ||
+    !user
+  ) {
     throw new Error(
       "Usuário não autenticado."
     );
@@ -154,11 +279,20 @@ async function getCampaignContext(): Promise<CampaignContext> {
   } = await supabase
     .from("campaign_members")
     .select("campaign_id")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .order("created_at", {
-      ascending: true,
-    })
+    .eq(
+      "user_id",
+      user.id
+    )
+    .eq(
+      "is_active",
+      true
+    )
+    .order(
+      "created_at",
+      {
+        ascending: true,
+      }
+    )
     .limit(1)
     .maybeSingle();
 
@@ -173,7 +307,9 @@ async function getCampaignContext(): Promise<CampaignContext> {
     );
   }
 
-  if (!membership?.campaign_id) {
+  if (
+    !membership?.campaign_id
+  ) {
     throw new Error(
       "Seu usuário não está vinculado a uma campanha ativa."
     );
@@ -190,11 +326,14 @@ async function createUniquePostSlug(
   title: string,
   campaignId: string
 ): Promise<string> {
-  const supabase = await createClient();
+  const supabase =
+    await createClient();
 
   const baseSlug =
     slugify(title) ||
-    `noticia-${crypto.randomUUID().slice(0, 8)}`;
+    `noticia-${crypto
+      .randomUUID()
+      .slice(0, 8)}`;
 
   let slug = baseSlug;
   let counter = 2;
@@ -204,9 +343,14 @@ async function createUniquePostSlug(
       data,
       error,
     } = await supabase
-      .from("campaign_posts")
+      .from(
+        "campaign_posts"
+      )
       .select("id")
-      .eq("campaign_id", campaignId)
+      .eq(
+        "campaign_id",
+        campaignId
+      )
       .eq("slug", slug)
       .maybeSingle();
 
@@ -225,8 +369,131 @@ async function createUniquePostSlug(
       return slug;
     }
 
-    slug = `${baseSlug}-${counter}`;
+    slug =
+      `${baseSlug}-${counter}`;
+
     counter += 1;
+  }
+}
+
+function getFileExtension(
+  file: File
+): string {
+  switch (file.type) {
+    case "image/png":
+      return "png";
+
+    case "image/webp":
+      return "webp";
+
+    case "image/jpeg":
+    default:
+      return "jpg";
+  }
+}
+
+async function uploadPostImage(
+  file: File,
+  campaignId: string
+): Promise<UploadedImage> {
+  const supabase =
+    await createClient();
+
+  const extension =
+    getFileExtension(file);
+
+  const storagePath =
+    `${campaignId}/posts/${crypto.randomUUID()}.${extension}`;
+
+  const arrayBuffer =
+    await file.arrayBuffer();
+
+  const buffer =
+    new Uint8Array(
+      arrayBuffer
+    );
+
+  const {
+    error: uploadError,
+  } = await supabase.storage
+    .from(MEDIA_BUCKET)
+    .upload(
+      storagePath,
+      buffer,
+      {
+        contentType:
+          file.type,
+        upsert: false,
+      }
+    );
+
+ if (uploadError) {
+  console.error(
+    "Erro ao enviar imagem da notícia:",
+    JSON.stringify(
+      {
+        message: uploadError.message,
+        name: uploadError.name,
+      },
+      null,
+      2
+    )
+  );
+
+  throw new Error(
+    `Não foi possível enviar a imagem de capa: ${uploadError.message}`
+  );
+}
+
+  const {
+    data: publicUrlData,
+  } = supabase.storage
+    .from(MEDIA_BUCKET)
+    .getPublicUrl(
+      storagePath
+    );
+
+  return {
+    url:
+      publicUrlData
+        .publicUrl,
+
+    storagePath,
+  };
+}
+
+async function removeStoredImage(
+  storagePath:
+    | string
+    | null
+    | undefined
+) {
+  if (!storagePath) {
+    return;
+  }
+
+  const supabase =
+    await createClient();
+
+  const {
+    error,
+  } = await supabase.storage
+    .from(MEDIA_BUCKET)
+    .remove([
+      storagePath,
+    ]);
+
+  if (error) {
+    /*
+     * Não bloqueamos a operação
+     * principal caso apenas a
+     * limpeza do arquivo antigo
+     * falhe.
+     */
+    console.error(
+      "Erro ao remover imagem antiga:",
+      error
+    );
   }
 }
 
@@ -251,12 +518,19 @@ function revalidatePostRoutes() {
 }
 
 export async function createPost(
-  _previousState: PostActionState,
+  _previousState:
+    PostActionState,
   formData: FormData
 ): Promise<PostActionState> {
+  let uploadedImage:
+    | UploadedImage
+    | null = null;
+
   try {
     const validation =
-      validatePost(formData);
+      validatePost(
+        formData
+      );
 
     if (validation) {
       return validation;
@@ -268,15 +542,24 @@ export async function createPost(
     const {
       userId,
       campaignId,
-    } = await getCampaignContext();
+    } =
+      await getCampaignContext();
 
-    const title = getString(
-      formData,
-      "title"
-    );
+    const title =
+      getString(
+        formData,
+        "title"
+      );
 
     const status =
-      getPostStatus(formData);
+      getPostStatus(
+        formData
+      );
+
+    const imageFile =
+      getImageFile(
+        formData
+      );
 
     const slug =
       await createUniquePostSlug(
@@ -284,13 +567,27 @@ export async function createPost(
         campaignId
       );
 
+    if (imageFile) {
+      uploadedImage =
+        await uploadPostImage(
+          imageFile,
+          campaignId
+        );
+    }
+
     const publishedAt =
-      status === "published"
-        ? new Date().toISOString()
+      status ===
+      "published"
+        ? new Date()
+            .toISOString()
         : null;
 
-    const { error } = await supabase
-      .from("campaign_posts")
+    const {
+      error,
+    } = await supabase
+      .from(
+        "campaign_posts"
+      )
       .insert({
         campaign_id:
           campaignId,
@@ -312,10 +609,13 @@ export async function createPost(
           ),
 
         cover_image_url:
-          getOptionalString(
-            formData,
-            "cover_image_url"
-          ),
+          uploadedImage?.url ??
+          null,
+
+        cover_image_storage_path:
+          uploadedImage
+            ?.storagePath ??
+          null,
 
         author_name:
           getOptionalString(
@@ -333,12 +633,29 @@ export async function createPost(
       });
 
     if (error) {
+      /*
+       * Se o upload foi feito,
+       * mas o registro no banco
+       * falhou, removemos o arquivo.
+       */
+      if (
+        uploadedImage
+          ?.storagePath
+      ) {
+        await removeStoredImage(
+          uploadedImage
+            .storagePath
+        );
+      }
+
       console.error(
         "Erro ao criar notícia:",
         error
       );
 
-      if (error.code === "23505") {
+      if (
+        error.code === "23505"
+      ) {
         return {
           success: false,
           message:
@@ -361,6 +678,16 @@ export async function createPost(
         "Notícia cadastrada com sucesso.",
     };
   } catch (error) {
+    if (
+      uploadedImage
+        ?.storagePath
+    ) {
+      await removeStoredImage(
+        uploadedImage
+          .storagePath
+      );
+    }
+
     console.error(
       "Erro em createPost:",
       error
@@ -378,9 +705,14 @@ export async function createPost(
 
 export async function updatePost(
   postId: string,
-  _previousState: PostActionState,
+  _previousState:
+    PostActionState,
   formData: FormData
 ): Promise<PostActionState> {
+  let uploadedImage:
+    | UploadedImage
+    | null = null;
+
   try {
     if (!postId) {
       return {
@@ -391,7 +723,9 @@ export async function updatePost(
     }
 
     const validation =
-      validatePost(formData);
+      validatePost(
+        formData
+      );
 
     if (validation) {
       return validation;
@@ -400,20 +734,29 @@ export async function updatePost(
     const supabase =
       await createClient();
 
-    const { campaignId } =
+    const {
+      campaignId,
+    } =
       await getCampaignContext();
 
     const {
       data: existingPost,
       error: findError,
     } = await supabase
-      .from("campaign_posts")
+      .from(
+        "campaign_posts"
+      )
       .select(`
         id,
         status,
-        published_at
+        published_at,
+        cover_image_url,
+        cover_image_storage_path
       `)
-      .eq("id", postId)
+      .eq(
+        "id",
+        postId
+      )
       .eq(
         "campaign_id",
         campaignId
@@ -442,19 +785,70 @@ export async function updatePost(
     }
 
     const status =
-      getPostStatus(formData);
+      getPostStatus(
+        formData
+      );
+
+    const imageFile =
+      getImageFile(
+        formData
+      );
+
+    const removeImage =
+      getBoolean(
+        formData,
+        "remove_cover_image"
+      );
+
+    let coverImageUrl =
+      existingPost
+        .cover_image_url;
+
+    let coverImageStoragePath =
+      existingPost
+        .cover_image_storage_path;
+
+    /*
+     * Caso uma nova imagem
+     * tenha sido escolhida,
+     * fazemos upload primeiro.
+     */
+    if (imageFile) {
+      uploadedImage =
+        await uploadPostImage(
+          imageFile,
+          campaignId
+        );
+
+      coverImageUrl =
+        uploadedImage.url;
+
+      coverImageStoragePath =
+        uploadedImage.storagePath;
+    } else if (
+      removeImage
+    ) {
+      coverImageUrl = null;
+      coverImageStoragePath =
+        null;
+    }
 
     const publishedAt =
-      status === "published"
-        ? existingPost.published_at ||
-          new Date().toISOString()
+      status ===
+      "published"
+        ? existingPost
+            .published_at ||
+          new Date()
+            .toISOString()
         : null;
 
     const {
       data: updatedPost,
       error,
     } = await supabase
-      .from("campaign_posts")
+      .from(
+        "campaign_posts"
+      )
       .update({
         title:
           getString(
@@ -475,10 +869,10 @@ export async function updatePost(
           ),
 
         cover_image_url:
-          getOptionalString(
-            formData,
-            "cover_image_url"
-          ),
+          coverImageUrl,
+
+        cover_image_storage_path:
+          coverImageStoragePath,
 
         author_name:
           getOptionalString(
@@ -492,9 +886,13 @@ export async function updatePost(
           publishedAt,
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
-      .eq("id", postId)
+      .eq(
+        "id",
+        postId
+      )
       .eq(
         "campaign_id",
         campaignId
@@ -503,6 +901,22 @@ export async function updatePost(
       .maybeSingle();
 
     if (error) {
+      /*
+       * O update falhou depois
+       * do upload da nova imagem.
+       * Portanto removemos apenas
+       * a imagem nova.
+       */
+      if (
+        uploadedImage
+          ?.storagePath
+      ) {
+        await removeStoredImage(
+          uploadedImage
+            .storagePath
+        );
+      }
+
       console.error(
         "Erro ao atualizar notícia:",
         error
@@ -516,11 +930,53 @@ export async function updatePost(
     }
 
     if (!updatedPost) {
+      if (
+        uploadedImage
+          ?.storagePath
+      ) {
+        await removeStoredImage(
+          uploadedImage
+            .storagePath
+        );
+      }
+
       return {
         success: false,
         message:
           "Nenhuma notícia foi atualizada.",
       };
+    }
+
+    /*
+     * O banco foi atualizado
+     * com sucesso.
+     *
+     * Agora podemos apagar a
+     * imagem antiga caso tenha
+     * sido substituída ou removida.
+     */
+    const oldStoragePath =
+      existingPost
+        .cover_image_storage_path;
+
+    const imageWasReplaced =
+      Boolean(
+        uploadedImage
+          ?.storagePath
+      );
+
+    if (
+      oldStoragePath &&
+      (
+        imageWasReplaced ||
+        removeImage
+      ) &&
+      oldStoragePath !==
+        coverImageStoragePath
+    ) {
+      await removeStoredImage(
+        oldStoragePath
+      );
     }
 
     revalidatePostRoutes();
@@ -531,6 +987,16 @@ export async function updatePost(
         "Notícia atualizada com sucesso.",
     };
   } catch (error) {
+    if (
+      uploadedImage
+        ?.storagePath
+    ) {
+      await removeStoredImage(
+        uploadedImage
+          .storagePath
+      );
+    }
+
     console.error(
       "Erro em updatePost:",
       error
@@ -561,20 +1027,27 @@ export async function togglePostPublication(
     const supabase =
       await createClient();
 
-    const { campaignId } =
+    const {
+      campaignId,
+    } =
       await getCampaignContext();
 
     const {
       data: post,
       error: findError,
     } = await supabase
-      .from("campaign_posts")
+      .from(
+        "campaign_posts"
+      )
       .select(`
         id,
         status,
         published_at
       `)
-      .eq("id", postId)
+      .eq(
+        "id",
+        postId
+      )
       .eq(
         "campaign_id",
         campaignId
@@ -602,29 +1075,40 @@ export async function togglePostPublication(
       };
     }
 
-    const nextStatus: PostStatus =
-      post.status === "published"
+    const nextStatus:
+      PostStatus =
+      post.status ===
+      "published"
         ? "draft"
         : "published";
 
     const {
       error,
     } = await supabase
-      .from("campaign_posts")
+      .from(
+        "campaign_posts"
+      )
       .update({
         status:
           nextStatus,
 
         published_at:
-          nextStatus === "published"
-            ? post.published_at ||
-              new Date().toISOString()
+          nextStatus ===
+          "published"
+            ? post
+                .published_at ||
+              new Date()
+                .toISOString()
             : null,
 
         updated_at:
-          new Date().toISOString(),
+          new Date()
+            .toISOString(),
       })
-      .eq("id", postId)
+      .eq(
+        "id",
+        postId
+      )
       .eq(
         "campaign_id",
         campaignId
@@ -648,7 +1132,8 @@ export async function togglePostPublication(
     return {
       success: true,
       message:
-        nextStatus === "published"
+        nextStatus ===
+        "published"
           ? "Notícia publicada com sucesso."
           : "Notícia movida para rascunho.",
     };
@@ -683,16 +1168,71 @@ export async function deletePost(
     const supabase =
       await createClient();
 
-    const { campaignId } =
+    const {
+      campaignId,
+    } =
       await getCampaignContext();
+
+    /*
+     * Antes de excluir,
+     * buscamos o caminho da
+     * imagem para remover do
+     * Storage depois.
+     */
+    const {
+      data: existingPost,
+      error: findError,
+    } = await supabase
+      .from(
+        "campaign_posts"
+      )
+      .select(`
+        id,
+        cover_image_storage_path
+      `)
+      .eq(
+        "id",
+        postId
+      )
+      .eq(
+        "campaign_id",
+        campaignId
+      )
+      .maybeSingle();
+
+    if (findError) {
+      console.error(
+        "Erro ao localizar notícia para exclusão:",
+        findError
+      );
+
+      return {
+        success: false,
+        message:
+          "Não foi possível localizar a notícia.",
+      };
+    }
+
+    if (!existingPost) {
+      return {
+        success: false,
+        message:
+          "A notícia não foi encontrada ou você não possui acesso.",
+      };
+    }
 
     const {
       data: deletedPost,
       error,
     } = await supabase
-      .from("campaign_posts")
+      .from(
+        "campaign_posts"
+      )
       .delete()
-      .eq("id", postId)
+      .eq(
+        "id",
+        postId
+      )
       .eq(
         "campaign_id",
         campaignId
@@ -720,6 +1260,16 @@ export async function deletePost(
           "A notícia não foi encontrada ou você não possui acesso.",
       };
     }
+
+    /*
+     * A notícia já foi excluída
+     * com sucesso do banco.
+     * Agora limpamos sua imagem.
+     */
+    await removeStoredImage(
+      existingPost
+        .cover_image_storage_path
+    );
 
     revalidatePostRoutes();
 

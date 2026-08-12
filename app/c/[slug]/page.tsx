@@ -101,6 +101,7 @@ export default async function PublicCampaignPage({
   const {
     landing,
     proposals,
+    hasMoreProposals,
     events,
     gallery,
     materials,
@@ -124,6 +125,9 @@ export default async function PublicCampaignPage({
       <Proposals
         landing={landing}
         proposals={proposals}
+        hasMoreProposals={
+          hasMoreProposals
+        }
       />
 
       <Events

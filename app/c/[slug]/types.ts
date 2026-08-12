@@ -12,7 +12,7 @@ export type LandingData = {
   campaign_number: string | null;
 
   city: string | null;
-  state: string |null;
+  state: string | null;
 
   slogan: string | null;
 
@@ -25,7 +25,7 @@ export type LandingData = {
   community_group_url: string | null;
 
   support_cta_title: string | null;
-support_cta_description: string | null;
+  support_cta_description: string | null;
 
   logo_url: string | null;
   profile_image_url: string | null;
@@ -34,18 +34,18 @@ support_cta_description: string | null;
   whatsapp: string | null;
   email: string | null;
 
-  instagram_url: string |null;
-  facebook_url: string |null;
-  youtube_url: string |null;
-  tiktok_url: string |null;
-  x_url: string |null
+  instagram_url: string | null;
+  facebook_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
+  x_url: string | null;
 
   socials: {
-  instagram?: string | null;
-  facebook?: string | null;
-  youtube?: string | null;
-  linkedin?: string | null;
-} | null;
+    instagram?: string | null;
+    facebook?: string | null;
+    youtube?: string | null;
+    linkedin?: string | null;
+  } | null;
 
   primary_color: string;
   secondary_color: string;
@@ -61,8 +61,6 @@ support_cta_description: string | null;
   show_support_form: boolean;
   show_social_links: boolean;
 };
-
-
 
 export type ProposalData = {
   id: string;
@@ -105,7 +103,10 @@ export type GalleryImageData = {
   event_date: string | null;
 
   position: number;
-  status: "draft" | "published" | "archived";
+  status:
+    | "draft"
+    | "published"
+    | "archived";
 
   created_at: string;
   updated_at: string;
@@ -142,7 +143,11 @@ export type MaterialData = {
     | "documento"
     | "other";
 
-  status: "pending" | "approved" | "archived";
+  status:
+    | "pending"
+    | "approved"
+    | "archived";
+
   is_official: boolean;
 
   file_url: string;
@@ -216,10 +221,14 @@ export type LeaderData = {
 
   image_url: string | null;
 };
+
 export type LandingPageData = {
   landing: LandingData;
 
   proposals: ProposalData[];
+
+  totalProposals: number;
+  hasMoreProposals: boolean;
 
   events: EventData[];
 
@@ -230,5 +239,4 @@ export type LandingPageData = {
   posts: PostData[];
 
   leaders: LeaderData[];
-  
 };

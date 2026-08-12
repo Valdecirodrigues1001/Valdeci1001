@@ -113,6 +113,7 @@ async function getPosts(
       excerpt,
       content,
       cover_image_url,
+      cover_image_storage_path,
       author_name,
       status,
       published_at,
@@ -255,7 +256,14 @@ export default async function NewsPage({
         ) : null}
 
         <div className="mt-8 grid items-start gap-8 xl:grid-cols-[420px_minmax(0,1fr)]">
-          <PostForm post={editingPost} />
+          <PostForm
+  key={
+    editingPost?.id
+      ? `edit-${editingPost.id}`
+      : "new-post"
+  }
+  post={editingPost}
+/>
 
           <PostsList
             posts={posts}

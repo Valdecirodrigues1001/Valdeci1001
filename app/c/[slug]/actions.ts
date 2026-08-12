@@ -43,6 +43,7 @@ export async function getLandingPageData(
 
   const [
     proposalsResult,
+    proposalsCountResult,
     eventsResult,
     galleryResult,
     materialsResult,
@@ -54,76 +55,99 @@ export async function getLandingPageData(
       .select("*")
       .eq("campaign_id", campaignId)
       .eq("is_published", true)
+      .eq("is_featured", true)
       .order("display_order", {
+        ascending: true,
+      })
+      .limit(6),
+
+    supabase
+      .from("campaign_proposals")
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
+      .eq("campaign_id", campaignId)
+      .eq("is_published", true),
+
+    supabase
+      .from("campaign_events")
+      .select("*")
+      .eq("campaign_id", campaignId)
+      .in("status", [
+        "scheduled",
+        "confirmed",
+      ])
+      .gte(
+        "start_at",
+        new Date().toISOString()
+      )
+      .order("start_at", {
         ascending: true,
       }),
 
     supabase
-  .from("campaign_events")
-  .select("*")
-  .eq("campaign_id", campaignId)
-  .in("status", ["scheduled", "confirmed"])
-  .gte("start_at", new Date().toISOString())
-  .order("start_at", {
-    ascending: true,
-  }),
+      .from("campaign_gallery")
+      .select("*")
+      .eq("campaign_id", campaignId)
+      .eq("status", "published")
+      .order("position", {
+        ascending: true,
+      }),
 
     supabase
-  .from("campaign_gallery")
-  .select("*")
-  .eq("campaign_id", campaignId)
-  .eq("status", "published")
-  .order("position", {
-    ascending: true,
-  }),
+      .from("campaign_materials")
+      .select("*")
+      .eq("campaign_id", campaignId)
+      .eq("status", "approved")
+      .order("created_at", {
+        ascending: false,
+      }),
 
     supabase
-  .from("campaign_materials")
-  .select("*")
-  .eq("campaign_id", campaignId)
-  .eq("status", "approved")
-  .order("created_at", {
-    ascending: false,
-  }),
+      .from("campaign_posts")
+      .select("*")
+      .eq("campaign_id", campaignId)
+      .eq("status", "published")
+      .order("published_at", {
+        ascending: false,
+        nullsFirst: false,
+      }),
 
-   supabase
-  .from("campaign_posts")
-  .select("*")
-  .eq("campaign_id", campaignId)
-  .eq("status", "published")
-  .order("published_at", {
-    ascending: false,
-    nullsFirst: false,
-  }),
-
-   supabase
-  .from("leaders")
-  .select(`
-    id,
-    campaign_id,
-    full_name,
-    profession,
-    image_url,
-    city,
-    neighborhood,
-    instagram,
-    facebook,
-    area_of_influence,
-    estimated_supporters,
-    created_at
-  `)
-  .eq("campaign_id", campaignId)
-  .eq("is_active", true)
-  .eq("status", "active")
-  .order("created_at", {
-    ascending: true,
-  }),
+    supabase
+      .from("leaders")
+      .select(`
+        id,
+        campaign_id,
+        full_name,
+        profession,
+        city,
+        neighborhood,
+        instagram,
+        facebook,
+        area_of_influence,
+        estimated_supporters,
+        created_at
+      `)
+      .eq("campaign_id", campaignId)
+      .eq("is_active", true)
+      .eq("status", "active")
+      .order("created_at", {
+        ascending: true,
+      }),
   ]);
 
   if (proposalsResult.error) {
     console.error(
       "Erro ao carregar propostas:",
       proposalsResult.error
+    );
+  }
+
+  if (proposalsCountResult.error) {
+    console.error(
+      "Erro ao contar propostas:",
+      proposalsCountResult.error
     );
   }
 
@@ -158,29 +182,78 @@ export async function getLandingPageData(
   if (leadersResult.error) {
     console.error(
       "Erro ao carregar lideranças:",
-      leadersResult.error
+      JSON.stringify(
+        {
+          message:
+            leadersResult.error.message,
+          code:
+            leadersResult.error.code,
+          details:
+            leadersResult.error.details,
+          hint:
+            leadersResult.error.hint,
+        },
+        null,
+        2
+      )
     );
   }
 
-  return {
-    landing: landing as LandingData,
+  const proposals =
+    (
+      proposalsResult.data as
+        | ProposalData[]
+        | null
+    ) ?? [];
 
-    proposals:
-      (proposalsResult.data as ProposalData[] | null) ?? [],
+  const totalProposals =
+    proposalsCountResult.count ?? 0;
+
+  return {
+    landing:
+      landing as LandingData,
+
+    proposals,
+
+    totalProposals,
+
+    hasMoreProposals:
+      totalProposals >
+      proposals.length,
 
     events:
-      (eventsResult.data as EventData[] | null) ?? [],
+      (
+        eventsResult.data as
+          | EventData[]
+          | null
+      ) ?? [],
 
     gallery:
-      (galleryResult.data as GalleryImageData[] | null) ?? [],
+      (
+        galleryResult.data as
+          | GalleryImageData[]
+          | null
+      ) ?? [],
 
     materials:
-      (materialsResult.data as MaterialData[] | null) ?? [],
+      (
+        materialsResult.data as
+          | MaterialData[]
+          | null
+      ) ?? [],
 
     posts:
-      (postsResult.data as PostData[] | null) ?? [],
+      (
+        postsResult.data as
+          | PostData[]
+          | null
+      ) ?? [],
 
     leaders:
-      (leadersResult.data as LeaderData[] | null) ?? [],
+      (
+        leadersResult.data as
+          | LeaderData[]
+          | null
+      ) ?? [],
   };
 }

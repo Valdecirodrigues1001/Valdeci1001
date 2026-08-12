@@ -15,6 +15,12 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/storage/v1/object/public/landing-pages/**",
       },
+      {
+        protocol: "https",
+        hostname: "pyicvtbmucvokijlkdnf.supabase.co",
+        port: "",
+        pathname: "/storage/v1/object/public/campaign-media/**",
+      },
     ],
   },
 };

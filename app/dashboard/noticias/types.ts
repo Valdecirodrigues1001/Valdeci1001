@@ -8,7 +8,10 @@ export type PostFormData = {
   slug: string;
   excerpt: string | null;
   content: string | null;
+
   cover_image_url: string | null;
+  cover_image_storage_path: string | null;
+
   author_name: string | null;
   status: PostStatus;
   published_at: string | null;
@@ -21,7 +24,10 @@ export type PostListItem = {
   slug: string;
   excerpt: string | null;
   content: string | null;
+
   cover_image_url: string | null;
+  cover_image_storage_path: string | null;
+
   author_name: string | null;
   status: PostStatus;
   published_at: string | null;

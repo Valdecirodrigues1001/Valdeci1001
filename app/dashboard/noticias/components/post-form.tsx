@@ -11,9 +11,11 @@ import {
 import {
   FileImage,
   FileText,
+  ImagePlus,
   Loader2,
   Newspaper,
   Save,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react";
@@ -43,20 +45,22 @@ const initialState: PostActionState = {
   message: "",
 };
 
-const emptyDocument: RichTextValue = {
-  type: "doc",
-  content: [
-    {
-      type: "paragraph",
-    },
-  ],
-};
+function createEmptyDocument(): RichTextValue {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "paragraph",
+      },
+    ],
+  };
+}
 
 function parsePostContent(
   content: string | null | undefined
 ): RichTextValue {
   if (!content?.trim()) {
-    return emptyDocument;
+    return createEmptyDocument();
   }
 
   try {
@@ -73,8 +77,7 @@ function parsePostContent(
     }
   } catch {
     /*
-     * Compatibilidade com conteúdos antigos
-     * salvos como texto simples.
+     * Compatibilidade com conteúdos antigos.
      */
   }
 
@@ -102,69 +105,201 @@ export default function PostForm({
   const formRef =
     useRef<HTMLFormElement>(null);
 
+  const fileInputRef =
+    useRef<HTMLInputElement>(null);
+
+  const [formVersion, setFormVersion] =
+    useState(0);
+
   const [content, setContent] =
     useState<RichTextValue>(() =>
       parsePostContent(post?.content)
     );
 
-  const isEditing = Boolean(post?.id);
+  const [
+    selectedFile,
+    setSelectedFile,
+  ] = useState<File | null>(null);
 
-  const action = post
-    ? updatePost.bind(null, post.id)
-    : createPost;
+  const [
+    previewUrl,
+    setPreviewUrl,
+  ] = useState<string | null>(
+    post?.cover_image_url ?? null
+  );
 
-  const [state, formAction, pending] =
-    useActionState(
-      action,
-      initialState
-    );
+  const [
+    removeExistingImage,
+    setRemoveExistingImage,
+  ] = useState(false);
+
+  const isEditing =
+    Boolean(post?.id);
+
+  const action =
+    isEditing && post
+      ? updatePost.bind(
+          null,
+          post.id
+        )
+      : createPost;
+
+  const [
+    state,
+    formAction,
+    pending,
+  ] = useActionState(
+    action,
+    initialState
+  );
 
   useEffect(() => {
     setContent(
-      parsePostContent(post?.content)
+      parsePostContent(
+        post?.content
+      )
     );
+
+    setSelectedFile(null);
+
+    setPreviewUrl(
+      post?.cover_image_url ??
+        null
+    );
+
+    setRemoveExistingImage(
+      false
+    );
+
+    if (
+      fileInputRef.current
+    ) {
+      fileInputRef.current.value =
+        "";
+    }
   }, [
     post?.id,
     post?.content,
+    post?.cover_image_url,
   ]);
 
-  useEffect(() => {
-    if (!state.success) {
-      return;
-    }
+ useEffect(() => {
+  if (!state.success) {
+    return;
+  }
 
-    if (isEditing) {
-      router.push(
-        "/dashboard/noticias"
-      );
-
-      router.refresh();
-
-      return;
-    }
-
-    formRef.current?.reset();
-
-    setContent(emptyDocument);
+  if (isEditing) {
+    router.replace(
+      "/dashboard/noticias"
+    );
 
     router.refresh();
-  }, [
-    isEditing,
-    router,
-    state.success,
-  ]);
+
+    return;
+  }
+
+  formRef.current?.reset();
+
+  setContent(
+    createEmptyDocument()
+  );
+
+  setSelectedFile(null);
+  setPreviewUrl(null);
+
+  setRemoveExistingImage(
+    false
+  );
+
+  if (fileInputRef.current) {
+    fileInputRef.current.value =
+      "";
+  }
+
+  setFormVersion(
+    (version) =>
+      version + 1
+  );
+
+  router.refresh();
+}, [state, router]);
+
+  useEffect(() => {
+    if (!selectedFile) {
+      return;
+    }
+
+    const objectUrl =
+      URL.createObjectURL(
+        selectedFile
+      );
+
+    setPreviewUrl(
+      objectUrl
+    );
+
+    return () => {
+      URL.revokeObjectURL(
+        objectUrl
+      );
+    };
+  }, [selectedFile]);
+
+  function handleImageChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file =
+      event.target.files?.[0] ??
+      null;
+
+    if (!file) {
+      return;
+    }
+
+    setSelectedFile(file);
+
+    setRemoveExistingImage(
+      false
+    );
+  }
+
+  function handleRemoveImage() {
+    setSelectedFile(null);
+    setPreviewUrl(null);
+
+    if (
+      post?.cover_image_url
+    ) {
+      setRemoveExistingImage(
+        true
+      );
+    }
+
+    if (
+      fileInputRef.current
+    ) {
+      fileInputRef.current.value =
+        "";
+    }
+  }
 
   const serializedContent =
     JSON.stringify(
-      content ?? emptyDocument
+      content ??
+        createEmptyDocument()
     );
 
-  const currentStatus: PostStatus =
+  const currentStatus:
+    PostStatus =
     post?.status ?? "draft";
 
   return (
     <form
-      key={post?.id ?? "new-post"}
+      key={
+        post?.id
+          ? `edit-${post.id}`
+          : `new-post-${formVersion}`
+      }
       ref={formRef}
       action={formAction}
       className="h-fit overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
@@ -209,7 +344,8 @@ export default function PostForm({
             : "Cadastre notícias, comunicados e conteúdos para exibição na página pública da campanha."}
         </p>
 
-        {isEditing && post?.slug ? (
+        {isEditing &&
+        post?.slug ? (
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">
               Endereço da notícia
@@ -265,7 +401,9 @@ export default function PostForm({
           </label>
 
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Texto curto exibido nos cards da Landing Page e nos compartilhamentos.
+            Texto curto exibido nos
+            cards da Landing Page e nos
+            compartilhamentos.
           </p>
 
           <textarea
@@ -303,7 +441,8 @@ export default function PostForm({
               name="author_name"
               type="text"
               defaultValue={
-                post?.author_name ?? ""
+                post?.author_name ??
+                ""
               }
               placeholder="Ex.: Assessoria de Comunicação"
               className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
@@ -312,46 +451,109 @@ export default function PostForm({
         </div>
 
         <div>
-          <label
-            htmlFor="cover_image_url"
-            className="text-sm font-bold text-slate-800"
-          >
+          <p className="text-sm font-bold text-slate-800">
             Imagem de capa
-          </label>
-
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Informe a URL pública da imagem que será exibida no card e na página da notícia.
           </p>
 
-          <div className="relative mt-2">
-            <FileImage className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Envie uma imagem JPG, PNG ou
+            WEBP de até 5 MB.
+          </p>
 
-            <input
-              id="cover_image_url"
-              name="cover_image_url"
-              type="url"
-              defaultValue={
-                post?.cover_image_url ??
-                ""
-              }
-              placeholder="https://..."
-              className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-            />
-          </div>
+          <input
+            type="hidden"
+            name="remove_cover_image"
+            value={
+              removeExistingImage
+                ? "true"
+                : "false"
+            }
+            readOnly
+          />
 
-          {post?.cover_image_url ? (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-              <img
-                src={
-                  post.cover_image_url
-                }
-                alt={
-                  post.title ||
-                  "Imagem de capa"
-                }
-                className="aspect-video w-full object-cover"
-              />
+          <input
+            ref={fileInputRef}
+            id="cover_image_file"
+            name="cover_image_file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={
+              handleImageChange
+            }
+            disabled={pending}
+            className="sr-only"
+          />
+
+          {!previewUrl ? (
+            <label
+              htmlFor="cover_image_file"
+              className="mt-3 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center transition hover:border-slate-300 hover:bg-slate-100"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
+                <ImagePlus className="h-5 w-5 text-slate-600" />
+              </div>
+
+              <p className="mt-4 text-sm font-bold text-slate-800">
+                Selecionar imagem
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Clique para escolher uma
+                imagem do computador.
+              </p>
+            </label>
+          ) : (
+            <div className="mt-3 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+              <div className="relative">
+                <img
+                  src={previewUrl}
+                  alt={
+                    post?.title ||
+                    "Imagem de capa"
+                  }
+                  className="aspect-video w-full object-cover"
+                />
+
+                <div className="absolute right-3 top-3 flex gap-2">
+                  <label
+                    htmlFor="cover_image_file"
+                    className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white/95 px-4 text-xs font-bold text-slate-800 shadow-lg backdrop-blur transition hover:bg-white"
+                  >
+                    <FileImage className="h-4 w-4" />
+                    Trocar
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleRemoveImage
+                    }
+                    disabled={pending}
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-bold text-white shadow-lg transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remover
+                  </button>
+                </div>
+              </div>
+
+              {selectedFile ? (
+                <div className="border-t border-slate-200 bg-white px-4 py-3">
+                  <p className="truncate text-xs font-semibold text-slate-600">
+                    {selectedFile.name}
+                  </p>
+                </div>
+              ) : null}
             </div>
+          )}
+
+          {state.errors?.cover_image ? (
+            <p className="mt-2 text-xs font-medium text-red-600">
+              {
+                state.errors
+                  .cover_image
+              }
+            </p>
           ) : null}
         </div>
 
@@ -364,7 +566,9 @@ export default function PostForm({
           </label>
 
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            Escreva o conteúdo completo da notícia, com títulos, listas, links e destaques.
+            Escreva o conteúdo completo da
+            notícia, com títulos, listas,
+            links e destaques.
           </p>
 
           <input
@@ -419,7 +623,9 @@ export default function PostForm({
           </select>
 
           <p className="mt-2 text-xs leading-5 text-slate-500">
-            Notícias publicadas aparecem automaticamente na página pública da campanha.
+            Notícias publicadas aparecem
+            automaticamente na página
+            pública da campanha.
           </p>
         </div>
 
