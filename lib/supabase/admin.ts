@@ -19,6 +19,14 @@ export function createAdminClient() {
     );
   }
 
+  if (
+    !supabaseUrl.startsWith("https://")
+  ) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL inválida."
+    );
+  }
+
   return createClient(
     supabaseUrl,
     supabaseSecretKey,
