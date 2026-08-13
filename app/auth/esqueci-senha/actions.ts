@@ -41,10 +41,10 @@ export async function requestPasswordReset(
 
   const supabase = await createClient();
 
-  const redirectTo = new URL(
-    "/auth/redefinir-senha",
-    siteUrl
-  );
+ const redirectTo = new URL(
+  "/auth/recovery",
+  siteUrl
+);
 
   const { error } =
     await supabase.auth.resetPasswordForEmail(

@@ -4,9 +4,27 @@ import { cookies } from "next/headers";
 export async function createClient() {
   const cookieStore = await cookies();
 
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_URL não configurada."
+    );
+  }
+
+  if (!supabaseKey) {
+    throw new Error(
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY não configurada."
+    );
+  }
+
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
@@ -15,12 +33,23 @@ export async function createClient() {
 
         setAll(cookiesToSet) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
+            cookiesToSet.forEach(
+              ({
+                name,
+                value,
+                options,
+              }) => {
+                cookieStore.set(
+                  name,
+                  value,
+                  options
+                );
+              }
+            );
           } catch {
-            // Em Server Components, os cookies podem ser somente leitura.
-            // O proxy será responsável por atualizar a sessão.
+            // Em Server Components,
+            // cookies podem ser somente leitura.
+            // O proxy atualiza a sessão.
           }
         },
       },

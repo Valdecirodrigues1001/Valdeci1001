@@ -322,21 +322,12 @@ if (!siteUrl) {
   };
 }
 
-  const redirectTo = new URL(
-    "/auth/confirm",
-    siteUrl
-  );
-
-  redirectTo.searchParams.set(
-  "next",
-  "/auth/definir-senha"
-);
-
-  const { data, error: invitationError } =
+const { data, error: invitationError } =
   await adminSupabase.auth.admin.inviteUserByEmail(
     email,
     {
-      redirectTo: redirectTo.toString(),
+      redirectTo:
+        `${siteUrl}/auth/invite-confirm`,
       data: {
         full_name: fullName,
         campaign_id:
