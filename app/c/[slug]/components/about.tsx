@@ -7,6 +7,43 @@ type AboutProps = {
   landing: LandingData;
 };
 
+function renderFormattedText(
+  text: string
+) {
+  const parts = text.split(
+    /(\*\*.*?\*\*)/g
+  );
+
+  return parts.map(
+    (part, index) => {
+      if (
+        part.startsWith("**") &&
+        part.endsWith("**")
+      ) {
+        const content =
+          part.slice(2, -2);
+
+        return (
+          <strong
+            key={`${content}-${index}`}
+            className="font-black"
+          >
+            {content}
+          </strong>
+        );
+      }
+
+      return (
+        <span
+          key={`${part}-${index}`}
+        >
+          {part}
+        </span>
+      );
+    }
+  );
+}
+
 export default function About({
   landing,
 }: AboutProps) {
@@ -141,15 +178,17 @@ export default function About({
                   landing.secondary_color,
               }}
             >
-              {
+              {renderFormattedText(
                 landing.short_biography
-              }
+              )}
             </p>
           )}
 
           {landing.biography && (
             <div className="mt-7 whitespace-pre-line text-base leading-8 opacity-80">
-              {landing.biography}
+              {renderFormattedText(
+                landing.biography
+              )}
             </div>
           )}
 
