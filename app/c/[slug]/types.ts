@@ -31,6 +31,13 @@ export type LandingData = {
   profile_image_url: string | null;
   hero_image_url: string | null;
 
+  favicon_url: string | null;
+  seo_image_url: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string | null;
+  custom_domain: string | null;
+
   whatsapp: string | null;
   email: string | null;
 

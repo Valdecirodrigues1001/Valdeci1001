@@ -38,24 +38,38 @@ export async function generateMetadata({
   const { landing } = data;
 
   const title =
+    landing.seo_title ||
     landing.hero_title ||
-    landing.public_name;
+    `${landing.public_name} | Site Oficial`;
 
   const description =
+    landing.seo_description ||
     landing.hero_subtitle ||
     landing.short_biography ||
     landing.slogan ||
     `Conheça a campanha de ${landing.public_name}.`;
 
   const image =
+    landing.seo_image_url ||
     landing.hero_image_url ||
     landing.profile_image_url ||
     landing.logo_url ||
     undefined;
 
+  const favicon =
+    landing.favicon_url ||
+    landing.logo_url ||
+    "/favicon.ico";
+
   return {
     title,
     description,
+
+    icons: {
+      icon: favicon,
+      shortcut: favicon,
+      apple: favicon,
+    },
 
     openGraph: {
       title,
