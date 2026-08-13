@@ -321,22 +321,41 @@ export default function GeneralForm({
             </div>
 
             <div>
-              <label
-                htmlFor="biography"
-                className="text-sm font-bold text-slate-700"
-              >
-                Biografia completa
-              </label>
+  <div className="flex items-center justify-between gap-4">
+    <label
+      htmlFor="biography"
+      className="text-sm font-bold text-slate-700"
+    >
+      Biografia completa
+    </label>
 
-              <textarea
-                id="biography"
-                name="biography"
-                defaultValue={landingPage.biography || ""}
-                rows={9}
-                placeholder="Conte a história, trajetória, experiências e motivações do candidato."
-                className={textareaClass}
-              />
-            </div>
+    <span className="text-xs font-medium text-slate-400">
+      Use **texto** para negrito
+    </span>
+  </div>
+
+  <textarea
+    id="biography"
+    name="biography"
+    defaultValue={landingPage.biography || ""}
+    rows={9}
+    placeholder={
+      "Conte a história, trajetória, experiências e motivações do candidato.\n\nUse **este formato** para destacar um trecho em negrito."
+    }
+    className={textareaClass}
+  />
+
+  <div className="mt-3 rounded-xl bg-slate-50 px-4 py-3">
+    <p className="text-xs leading-5 text-slate-500">
+      Para destacar uma palavra ou frase,
+      coloque dois asteriscos antes e depois.
+    </p>
+
+    <p className="mt-1 text-xs font-semibold text-slate-700">
+      Exemplo: **Mais trabalho para o Rio Grande**
+    </p>
+  </div>
+</div>
           </div>
         </div>
 
