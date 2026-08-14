@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import WhatsAppFloat from "./components/whatsapp-float";
 
 import { getLandingPageData } from "./actions";
 
@@ -172,6 +173,8 @@ export default async function PublicCampaignPage({
       <SupportCta landing={landing} />
 
       <Footer landing={landing} />
+
+      <WhatsAppFloat landing={landing} />
     </main>
   );
 }

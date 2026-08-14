@@ -2,6 +2,7 @@ import Image from "next/image";
 import {
   ArrowDown,
   ArrowRight,
+  HandHeart,
   MapPin,
   MessageCircle,
 } from "lucide-react";
@@ -223,37 +224,58 @@ const whatsappUrl = landing.whatsapp
                 novidades da campanha.
               </p>
 
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                {landing.show_support_form ? (
-                  <a
-                    href="#apoie"
-                    className="inline-flex min-h-13 flex-1 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-black shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
-                    style={{
-                      backgroundColor:
-                        landing.secondary_color,
-                      color:
-                        landing.primary_color,
-                    }}
-                  >
-                    Quero fazer parte
+             <div className="mt-5 grid gap-3 sm:grid-cols-2">
+  {landing.show_support_form ? (
+    <a
+      href="#apoie"
+      className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-black shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
+      style={{
+        backgroundColor:
+          landing.secondary_color,
+        color:
+          landing.primary_color,
+      }}
+    >
+      Quero apoiar
 
-                    <ArrowRight className="h-4 w-4" />
-                  </a>
-                ) : null}
+      <ArrowRight className="h-4 w-4" />
+    </a>
+  ) : null}
 
-                {whatsappUrl ? (
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl border border-white/20 px-5 text-sm font-black text-white transition hover:bg-white/10"
-                  >
-                    <MessageCircle className="h-4 w-4" />
+  {landing.donation_url ? (
+    <a
+      href={landing.donation_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl border-2 px-6 text-sm font-black shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
+      style={{
+        borderColor:
+          landing.secondary_color,
+        backgroundColor:
+          landing.secondary_color,
+        color:
+          landing.primary_color,
+      }}
+    >
+      <HandHeart className="h-5 w-5" />
 
-                    Falar com a campanha
-                  </a>
-                ) : null}
-              </div>
+      Quero doar
+    </a>
+  ) : null}
+
+  {whatsappUrl ? (
+    <a
+      href={whatsappUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-13 items-center justify-center gap-2 rounded-2xl border border-white/20 px-5 text-sm font-black text-white transition hover:bg-white/10 sm:col-span-2"
+    >
+      <MessageCircle className="h-4 w-4" />
+
+      Falar no whatsapp
+    </a>
+  ) : null}
+</div>
             </div>
 
             {/* NÚMERO + PARTIDO */}

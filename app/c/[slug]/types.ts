@@ -38,8 +38,9 @@ export type LandingData = {
   seo_keywords: string | null;
   custom_domain: string | null;
 
-  whatsapp: string | null;
-  email: string | null;
+whatsapp: string | null;
+email: string | null;
+donation_url: string | null;
 
   instagram_url: string | null;
   facebook_url: string | null;
