@@ -778,20 +778,35 @@ export async function submitPublicSupportForm(
       .select("id")
       .single();
 
-    if (
-      insertError ||
-      !supporter
-    ) {
-      console.error(
-        "Erro ao cadastrar apoio:",
-        insertError
-      );
+   if (
+  insertError ||
+  !supporter
+) {
+  console.error(
+    "Erro ao cadastrar apoio:",
+    JSON.stringify(
+      {
+        message:
+          insertError?.message,
+        code:
+          insertError?.code,
+        details:
+          insertError?.details,
+        hint:
+          insertError?.hint,
+      },
+      null,
+      2
+    )
+  );
 
-      return {
-        error:
-          "Não foi possível concluir seu cadastro. Tente novamente em alguns instantes.",
-      };
-    }
+  return {
+    error:
+      insertError?.message
+        ? `Erro ao cadastrar: ${insertError.message}`
+        : "Não foi possível concluir seu cadastro.",
+  };
+}
 
     /*
      * Atividade inicial.
