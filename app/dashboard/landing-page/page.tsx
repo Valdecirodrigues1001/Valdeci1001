@@ -42,6 +42,9 @@ type LandingPageData = {
   hero_image_url: string | null;
   hero_image_storage_path: string | null;
 
+  about_image_url: string | null;
+about_image_storage_path: string | null;
+
   favicon_url: string | null;
   favicon_storage_path: string | null;
 
