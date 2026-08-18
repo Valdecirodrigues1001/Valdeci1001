@@ -7,9 +7,23 @@ import type {
   ProposalData,
 } from "../../types";
 
+type ProposalNavigationItem = {
+  title: string;
+  slug: string;
+  display_order: number;
+};
+
 export type ProposalDetailPageData = {
   landing: LandingData;
   proposal: ProposalData;
+
+  previousProposal:
+    | ProposalNavigationItem
+    | null;
+
+  nextProposal:
+    | ProposalNavigationItem
+    | null;
 };
 
 export async function getProposalDetailPageData(
@@ -74,11 +88,107 @@ export async function getProposalDetailPageData(
     return null;
   }
 
+  /*
+   * Proposta anterior:
+   * pega a publicada imediatamente
+   * anterior pela ordem de exibição.
+   */
+  const {
+    data: previousProposal,
+    error: previousError,
+  } = await supabase
+    .from("campaign_proposals")
+    .select(`
+      title,
+      slug,
+      display_order
+    `)
+    .eq(
+      "campaign_id",
+      landing.campaign_id
+    )
+    .eq(
+      "is_published",
+      true
+    )
+    .lt(
+      "display_order",
+      proposal.display_order
+    )
+    .order(
+      "display_order",
+      {
+        ascending: false,
+      }
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (previousError) {
+    console.error(
+      "Erro ao carregar proposta anterior:",
+      previousError
+    );
+  }
+
+  /*
+   * Próxima proposta:
+   * pega a publicada imediatamente
+   * seguinte pela ordem de exibição.
+   */
+  const {
+    data: nextProposal,
+    error: nextError,
+  } = await supabase
+    .from("campaign_proposals")
+    .select(`
+      title,
+      slug,
+      display_order
+    `)
+    .eq(
+      "campaign_id",
+      landing.campaign_id
+    )
+    .eq(
+      "is_published",
+      true
+    )
+    .gt(
+      "display_order",
+      proposal.display_order
+    )
+    .order(
+      "display_order",
+      {
+        ascending: true,
+      }
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (nextError) {
+    console.error(
+      "Erro ao carregar próxima proposta:",
+      nextError
+    );
+  }
+
   return {
     landing:
       landing as LandingData,
 
     proposal:
       proposal as ProposalData,
+
+    previousProposal:
+      previousProposal as
+        | ProposalNavigationItem
+        | null,
+
+    nextProposal:
+      nextProposal as
+        | ProposalNavigationItem
+        | null,
   };
 }

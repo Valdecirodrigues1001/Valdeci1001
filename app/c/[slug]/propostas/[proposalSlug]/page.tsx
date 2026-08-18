@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   FileText,
 } from "lucide-react";
@@ -108,6 +109,8 @@ export default async function ProposalDetailPage({
   const {
     landing,
     proposal,
+    previousProposal,
+    nextProposal,
   } = data;
 
   const content =
@@ -214,6 +217,72 @@ export default async function ProposalDetailPage({
             </p>
           </div>
         )}
+
+        {(previousProposal ||
+          nextProposal) ? (
+          <div className="mt-14 border-t border-slate-200 pt-8">
+            <p className="mb-5 text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+              Continue navegando
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {previousProposal ? (
+                <Link
+                  href={`/c/${landing.slug}/propostas/${previousProposal.slug}`}
+                  className="group flex min-h-36 flex-col justify-between rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                    <ArrowLeft className="h-4 w-4 transition group-hover:-translate-x-1" />
+                    Proposta anterior
+                  </div>
+
+                  <p className="mt-5 text-lg font-black leading-snug text-slate-900">
+                    {
+                      previousProposal.title
+                    }
+                  </p>
+                </Link>
+              ) : (
+                <div />
+              )}
+
+              {nextProposal ? (
+                <Link
+                  href={`/c/${landing.slug}/propostas/${nextProposal.slug}`}
+                  className="group flex min-h-36 flex-col justify-between rounded-[1.75rem] border border-slate-200 bg-white p-6 text-right shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-center justify-end gap-2 text-xs font-black uppercase tracking-[0.16em] text-slate-400">
+                    Próxima proposta
+
+                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+                  </div>
+
+                  <p className="mt-5 text-lg font-black leading-snug text-slate-900">
+                    {
+                      nextProposal.title
+                    }
+                  </p>
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-10 text-center">
+          <Link
+            href={`/c/${landing.slug}/propostas`}
+            className="inline-flex items-center gap-2 rounded-2xl border px-5 py-3 text-sm font-black transition hover:-translate-y-0.5"
+            style={{
+              borderColor:
+                `${landing.primary_color}24`,
+              color:
+                landing.primary_color,
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Ver todas as propostas
+          </Link>
+        </div>
       </section>
     </main>
   );
