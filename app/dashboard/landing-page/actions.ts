@@ -29,6 +29,7 @@ type LandingImageField =
   | "logo"
   | "profile_image"
   | "hero_image"
+  | "about_image"
   | "favicon"
   | "seo_image";
 
@@ -37,38 +38,60 @@ type LandingImageConfig = {
     | "logo_url"
     | "profile_image_url"
     | "hero_image_url"
+    | "about_image_url"
     | "favicon_url"
     | "seo_image_url";
+
   pathColumn:
     | "logo_storage_path"
     | "profile_image_storage_path"
     | "hero_image_storage_path"
+    | "about_image_storage_path"
     | "favicon_storage_path"
     | "seo_image_storage_path";
-  folder: "branding" | "profile" | "hero" | "seo";
+
+  folder:
+    | "branding"
+    | "profile"
+    | "hero"
+    | "about"
+    | "seo";
 };
 
-const IMAGE_CONFIG: Record<LandingImageField, LandingImageConfig> = {
+const IMAGE_CONFIG: Record<
+  LandingImageField,
+  LandingImageConfig
+> = {
   logo: {
     urlColumn: "logo_url",
     pathColumn: "logo_storage_path",
     folder: "branding",
   },
+
   profile_image: {
     urlColumn: "profile_image_url",
     pathColumn: "profile_image_storage_path",
     folder: "profile",
   },
+
   hero_image: {
     urlColumn: "hero_image_url",
     pathColumn: "hero_image_storage_path",
     folder: "hero",
   },
+
+  about_image: {
+    urlColumn: "about_image_url",
+    pathColumn: "about_image_storage_path",
+    folder: "about",
+  },
+
   favicon: {
     urlColumn: "favicon_url",
     pathColumn: "favicon_storage_path",
     folder: "branding",
   },
+
   seo_image: {
     urlColumn: "seo_image_url",
     pathColumn: "seo_image_storage_path",

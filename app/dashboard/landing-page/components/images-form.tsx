@@ -13,6 +13,9 @@ type ImagesFormProps = {
     hero_image_url: string | null;
     hero_image_storage_path: string | null;
 
+    about_image_url: string | null;
+    about_image_storage_path: string | null;
+
     favicon_url: string | null;
     favicon_storage_path: string | null;
 
@@ -56,7 +59,7 @@ export default function ImagesForm({
         <ImageUploadCard
           imageField="profile_image"
           title="Foto do candidato"
-          description="Foto principal utilizada na apresentação e na biografia."
+          description="Foto principal utilizada na Hero e apresentação da campanha."
           recommendation="Utilize uma foto profissional, com boa iluminação. Recomendação: 1200 × 1500 pixels."
           currentImageUrl={landingPage.profile_image_url}
           currentStoragePath={
@@ -75,6 +78,18 @@ export default function ImagesForm({
             landingPage.hero_image_storage_path
           }
           aspectRatio="wide"
+        />
+
+        <ImageUploadCard
+          imageField="about_image"
+          title="Foto da seção Sobre"
+          description="Imagem exibida ao lado da biografia do candidato."
+          recommendation="Use uma foto diferente da Hero. Prefira retrato profissional em formato vertical. Recomendação: 1200 × 1500 pixels."
+          currentImageUrl={landingPage.about_image_url}
+          currentStoragePath={
+            landingPage.about_image_storage_path
+          }
+          aspectRatio="portrait"
         />
 
         <ImageUploadCard

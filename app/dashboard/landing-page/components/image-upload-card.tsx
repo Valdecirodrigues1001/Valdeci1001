@@ -25,6 +25,7 @@ type LandingImageField =
   | "logo"
   | "profile_image"
   | "hero_image"
+  | "about_image"
   | "favicon"
   | "seo_image";
 

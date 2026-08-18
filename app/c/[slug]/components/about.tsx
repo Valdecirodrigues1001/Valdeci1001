@@ -1,5 +1,8 @@
 import Image from "next/image";
-import { ArrowRight, MapPin } from "lucide-react";
+import {
+  ArrowRight,
+  MapPin,
+} from "lucide-react";
 
 import type { LandingData } from "../types";
 
@@ -58,10 +61,13 @@ export default function About({
     landing.biography ||
     landing.short_biography;
 
+  const aboutImage =
+    landing.about_image_url ||
+    landing.profile_image_url;
+
   if (
     !landing.show_about ||
-    (!biography &&
-      !landing.profile_image_url)
+    (!biography && !aboutImage)
   ) {
     return null;
   }
@@ -73,7 +79,8 @@ export default function About({
       style={{
         backgroundColor:
           landing.background_color,
-        color: landing.text_color,
+        color:
+          landing.text_color,
       }}
     >
       <div
@@ -90,7 +97,8 @@ export default function About({
           <div
             className="absolute -left-5 -top-5 h-full w-full rounded-[2.5rem]"
             style={{
-              border: `1px solid ${landing.secondary_color}40`,
+              border:
+                `1px solid ${landing.secondary_color}40`,
             }}
           />
 
@@ -101,12 +109,10 @@ export default function About({
                 `${landing.primary_color}0D`,
             }}
           >
-            {landing.profile_image_url ? (
+            {aboutImage ? (
               <Image
-                src={
-                  landing.profile_image_url
-                }
-                alt={landing.public_name}
+                src={aboutImage}
+                alt={`Foto de ${landing.public_name}`}
                 fill
                 sizes="(min-width: 1024px) 42vw, 100vw"
                 className="object-cover object-top"
@@ -143,13 +149,13 @@ export default function About({
                 {landing.public_name}
               </p>
 
-              {landing.political_position && (
+              {landing.political_position ? (
                 <p className="mt-1 text-sm font-semibold opacity-80">
                   {
                     landing.political_position
                   }
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -170,7 +176,7 @@ export default function About({
             trabalho, presença e compromisso
           </h2>
 
-          {landing.short_biography && (
+          {landing.short_biography ? (
             <p
               className="mt-7 border-l-4 pl-5 text-lg font-bold leading-8"
               style={{
@@ -182,18 +188,18 @@ export default function About({
                 landing.short_biography
               )}
             </p>
-          )}
+          ) : null}
 
-          {landing.biography && (
+          {landing.biography ? (
             <div className="mt-7 whitespace-pre-line text-base leading-8 opacity-80">
               {renderFormattedText(
                 landing.biography
               )}
             </div>
-          )}
+          ) : null}
 
           <div className="mt-9 flex flex-wrap gap-4">
-            {location && (
+            {location ? (
               <div
                 className="inline-flex items-center gap-3 rounded-2xl border px-5 py-3 text-sm font-bold"
                 style={{
@@ -213,9 +219,9 @@ export default function About({
 
                 {location}
               </div>
-            )}
+            ) : null}
 
-            {landing.show_proposals && (
+            {landing.show_proposals ? (
               <a
                 href="#propostas"
                 className="inline-flex items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black transition hover:-translate-y-0.5"
@@ -229,7 +235,7 @@ export default function About({
                 Conheça as propostas
                 <ArrowRight className="h-4 w-4" />
               </a>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

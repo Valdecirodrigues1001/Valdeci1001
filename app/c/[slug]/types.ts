@@ -30,6 +30,8 @@ export type LandingData = {
   logo_url: string | null;
   profile_image_url: string | null;
   hero_image_url: string | null;
+  about_image_url: string | null;
+about_image_storage_path: string | null;
 
   favicon_url: string | null;
   seo_image_url: string | null;
