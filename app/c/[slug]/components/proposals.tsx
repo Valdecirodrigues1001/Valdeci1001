@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   Accessibility,
+  ArrowLeft,
   ArrowRight,
   Bike,
   BookOpen,
@@ -128,6 +129,31 @@ export default function Proposals({
         )
       : null;
 
+  const selectedProposalIndex =
+    selectedProposal
+      ? proposals.findIndex(
+          (proposal) =>
+            proposal.id ===
+            selectedProposal.id
+        )
+      : -1;
+
+  const previousProposal =
+    selectedProposalIndex > 0
+      ? proposals[
+          selectedProposalIndex - 1
+        ]
+      : null;
+
+  const nextProposal =
+    selectedProposalIndex >= 0 &&
+    selectedProposalIndex <
+      proposals.length - 1
+      ? proposals[
+          selectedProposalIndex + 1
+        ]
+      : null;
+
   return (
     <>
       <section
@@ -239,7 +265,7 @@ export default function Proposals({
                       </span>
                     </div>
 
-                    {proposal.category && (
+                    {proposal.category ? (
                       <p
                         className="mt-7 text-xs font-black uppercase tracking-[0.18em]"
                         style={{
@@ -251,19 +277,19 @@ export default function Proposals({
                           proposal.category
                         }
                       </p>
-                    )}
+                    ) : null}
 
                     <h3 className="mt-3 text-2xl font-black leading-tight tracking-[-0.03em]">
                       {proposal.title}
                     </h3>
 
-                    {proposal.summary && (
+                    {proposal.summary ? (
                       <p className="mt-4 line-clamp-4 text-sm leading-7 opacity-70">
                         {
                           proposal.summary
                         }
                       </p>
-                    )}
+                    ) : null}
 
                     <div className="mt-auto pt-8">
                       <button
@@ -303,7 +329,7 @@ export default function Proposals({
           </div>
 
           {/* VER TODAS */}
-          {hasMoreProposals && (
+          {hasMoreProposals ? (
             <div className="mt-12 flex justify-center">
               <Link
                 href={`/c/${landing.slug}/propostas`}
@@ -322,12 +348,12 @@ export default function Proposals({
                 <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
               </Link>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 
       {/* MODAL */}
-      {selectedProposal && (
+      {selectedProposal ? (
         <div
           className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6"
           role="dialog"
@@ -338,7 +364,9 @@ export default function Proposals({
               event.target ===
               event.currentTarget
             ) {
-              setSelectedProposal(null);
+              setSelectedProposal(
+                null
+              );
             }
           }}
         >
@@ -362,7 +390,7 @@ export default function Proposals({
               }}
             >
               <div>
-                {selectedProposal.category && (
+                {selectedProposal.category ? (
                   <p
                     className="text-xs font-black uppercase tracking-[0.18em]"
                     style={{
@@ -374,7 +402,7 @@ export default function Proposals({
                       selectedProposal.category
                     }
                   </p>
-                )}
+                ) : null}
 
                 <h2
                   id="proposal-modal-title"
@@ -389,7 +417,9 @@ export default function Proposals({
               <button
                 type="button"
                 onClick={() =>
-                  setSelectedProposal(null)
+                  setSelectedProposal(
+                    null
+                  )
                 }
                 aria-label="Fechar proposta"
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition hover:scale-105"
@@ -404,7 +434,7 @@ export default function Proposals({
 
             {/* CONTEÚDO MODAL */}
             <div className="px-6 py-8 sm:px-8 sm:py-10">
-              {selectedProposal.summary && (
+              {selectedProposal.summary ? (
                 <div
                   className="mb-8 rounded-2xl border p-5"
                   style={{
@@ -430,7 +460,7 @@ export default function Proposals({
                     </p>
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {selectedContent ? (
                 <RichTextViewer
@@ -445,10 +475,109 @@ export default function Proposals({
                   publicado.
                 </p>
               )}
+
+              {(previousProposal ||
+                nextProposal) ? (
+                <div
+                  className="mt-10 border-t pt-7"
+                  style={{
+                    borderColor:
+                      `${landing.primary_color}1A`,
+                  }}
+                >
+                  <p className="mb-4 text-xs font-black uppercase tracking-[0.18em] opacity-40">
+                    Continue navegando
+                  </p>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {previousProposal ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedProposal(
+                            previousProposal
+                          )
+                        }
+                        className="group flex min-h-24 flex-col items-start justify-between rounded-2xl border p-5 text-left transition hover:-translate-y-0.5"
+                        style={{
+                          borderColor:
+                            `${landing.primary_color}1F`,
+                          backgroundColor:
+                            `${landing.primary_color}08`,
+                        }}
+                      >
+                        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] opacity-50">
+                          <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+                          Anterior
+                        </span>
+
+                        <span className="mt-3 font-black">
+                          {
+                            previousProposal.title
+                          }
+                        </span>
+                      </button>
+                    ) : (
+                      <div />
+                    )}
+
+                    {nextProposal ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedProposal(
+                            nextProposal
+                          )
+                        }
+                        className="group flex min-h-24 flex-col items-end justify-between rounded-2xl border p-5 text-right transition hover:-translate-y-0.5"
+                        style={{
+                          borderColor:
+                            `${landing.secondary_color}40`,
+                          backgroundColor:
+                            `${landing.secondary_color}0D`,
+                        }}
+                      >
+                        <span
+                          className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em]"
+                          style={{
+                            color:
+                              landing.secondary_color,
+                          }}
+                        >
+                          Próxima
+
+                          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </span>
+
+                        <span className="mt-3 font-black">
+                          {
+                            nextProposal.title
+                          }
+                        </span>
+                      </button>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-6 flex justify-center">
+                    <Link
+                      href={`/c/${landing.slug}/propostas`}
+                      className="inline-flex items-center gap-2 text-sm font-black transition hover:gap-3"
+                      style={{
+                        color:
+                          landing.primary_color,
+                      }}
+                    >
+                      Ver todas as propostas
+
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
