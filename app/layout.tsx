@@ -16,6 +16,9 @@ export const metadata: Metadata = {
   title: "Gestão de Campanhas",
   description:
     "Plataforma de gestão de campanhas eleitorais.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

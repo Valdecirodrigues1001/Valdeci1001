@@ -57,20 +57,9 @@ export async function generateMetadata({
     landing.logo_url ||
     undefined;
 
-  const favicon =
-    landing.favicon_url ||
-    landing.logo_url ||
-    "/favicon.ico";
-
   return {
     title,
     description,
-
-    icons: {
-      icon: favicon,
-      shortcut: favicon,
-      apple: favicon,
-    },
 
     openGraph: {
       title,
