@@ -43,8 +43,25 @@ export async function login(
       name: error.name,
     });
 
+    if (error.code === "email_not_confirmed") {
+      return {
+        error:
+          "Confirme seu e-mail antes de acessar o painel.",
+      };
+    }
+
+    if (
+      error.code === "over_request_rate_limit" ||
+      error.status === 429
+    ) {
+      return {
+        error:
+          "Muitas tentativas. Aguarde alguns minutos e tente novamente.",
+      };
+    }
+
     return {
-      error: `Erro no login: ${error.message}`,
+      error: "E-mail ou senha inválidos.",
     };
   }
 

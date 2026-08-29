@@ -141,6 +141,7 @@ const EDITOR_PERMISSIONS: Permission[] = [
   "dashboard.view",
 
   "events.view",
+  "events.manage",
 
   "proposals.view",
   "proposals.manage",

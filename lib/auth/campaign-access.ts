@@ -36,6 +36,7 @@ export async function getCurrentCampaignAccess(): Promise<
     `)
     .eq("user_id", user.id)
     .eq("is_active", true)
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
@@ -100,5 +101,48 @@ export async function checkPermission(
       permission
     ),
     access,
+  };
+}
+
+type AuthorizedActionContext = {
+  authorized: true;
+  access: CurrentCampaignAccess;
+  supabase: Awaited<ReturnType<typeof createClient>>;
+};
+
+type UnauthorizedActionContext = {
+  authorized: false;
+  access: null;
+  supabase: null;
+};
+
+/*
+ * Helper para Server Actions de escrita.
+ *
+ * Diferente de requirePermission, não faz redirect
+ * (Server Actions retornam estado de erro), e já
+ * devolve um client Supabase pronto para uso, evitando
+ * uma segunda chamada a auth.getUser() na própria action.
+ */
+export async function authorizeAction(
+  permission: Permission
+): Promise<
+  AuthorizedActionContext | UnauthorizedActionContext
+> {
+  const { allowed, access } =
+    await checkPermission(permission);
+
+  if (!allowed || !access) {
+    return {
+      authorized: false,
+      access: null,
+      supabase: null,
+    };
+  }
+
+  return {
+    authorized: true,
+    access,
+    supabase: await createClient(),
   };
 }

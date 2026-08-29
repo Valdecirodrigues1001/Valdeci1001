@@ -1,9 +1,18 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Toaster } from "sonner";
 
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { createClient } from "@/lib/supabase/server";
 import type { CampaignRole } from "@/lib/permissions";
+
+export const metadata: Metadata = {
+  title: "Painel",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 type CampaignData = {
   id: string;
@@ -47,6 +56,7 @@ export default async function DashboardLayout({
     `)
     .eq("user_id", user.id)
     .eq("is_active", true)
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 

@@ -42,6 +42,7 @@ async function getCurrentCampaign() {
       `)
       .eq("user_id", user.id)
       .eq("is_active", true)
+      .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
 
@@ -516,18 +517,14 @@ export async function inviteTeamMember(
       return {
         success: false,
         message:
-          invitationError?.message
-            ? `Erro no envio do e-mail: ${invitationError.message}`
-            : "Não foi possível enviar o e-mail de convite.",
+          "Não foi possível enviar o e-mail de convite. Verifique o endereço e tente novamente.",
       };
     }
 
     return {
       success: false,
       message:
-        invitationError?.message
-          ? `Erro ao enviar convite: ${invitationError.message}`
-          : "Não foi possível enviar o convite.",
+        "Não foi possível enviar o convite. Tente novamente em instantes.",
     };
   }
 

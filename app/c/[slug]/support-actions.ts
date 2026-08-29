@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
+import { getString } from "@/lib/form-data";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type PublicSupportFormState = {
@@ -22,19 +25,6 @@ export type PublicSupportFormState = {
     city?: string;
   };
 };
-
-function getString(
-  formData: FormData,
-  field: string
-): string {
-  const value = formData.get(field);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
 
 function normalizePhone(
   value: string
@@ -140,6 +130,96 @@ type RegionalArea = {
     | null;
 };
 
+type ExistingSupporter = {
+  id: string;
+  full_name: string | null;
+  whatsapp: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  neighborhood: string | null;
+  area_id: string | null;
+  notes: string | null;
+};
+
+const EXISTING_SUPPORTER_COLUMNS = `
+  id,
+  full_name,
+  whatsapp,
+  phone,
+  email,
+  city,
+  neighborhood,
+  area_id,
+  notes
+`;
+
+/*
+ * A atualização a partir do formulário público é
+ * NÃO destrutiva: apenas preenche campos vazios e
+ * anexa a mensagem às observações. Status, estágio
+ * do CRM e o flag is_active nunca são alterados por
+ * aqui — isso é responsabilidade da equipe no painel.
+ */
+function buildPublicUpdatePatch(
+  existing: ExistingSupporter,
+  incoming: {
+    fullName: string;
+    whatsapp: string;
+    phone: string;
+    email: string;
+    city: string;
+    neighborhood: string;
+    areaId: string | null;
+    note: string | null;
+  }
+): Record<string, unknown> {
+  const fillIfEmpty = (
+    current: string | null,
+    value: string
+  ) =>
+    current && current.trim()
+      ? current
+      : value || null;
+
+  const patch: Record<string, unknown> = {
+    full_name: fillIfEmpty(
+      existing.full_name,
+      incoming.fullName
+    ),
+    whatsapp: fillIfEmpty(
+      existing.whatsapp,
+      incoming.whatsapp
+    ),
+    phone: fillIfEmpty(
+      existing.phone,
+      incoming.phone
+    ),
+    email: fillIfEmpty(
+      existing.email,
+      incoming.email
+    ),
+    city: fillIfEmpty(
+      existing.city,
+      incoming.city
+    ),
+    neighborhood: fillIfEmpty(
+      existing.neighborhood,
+      incoming.neighborhood
+    ),
+    area_id:
+      existing.area_id ?? incoming.areaId,
+  };
+
+  if (incoming.note) {
+    patch.notes = existing.notes
+      ? `${existing.notes}\n\n---\n${incoming.note}`
+      : incoming.note;
+  }
+
+  return patch;
+}
+
 export async function submitPublicSupportForm(
   slug: string,
   _previousState: PublicSupportFormState,
@@ -156,6 +236,44 @@ export async function submitPublicSupportForm(
      */
     const supabase =
       createAdminClient();
+
+    /*
+     * Honeypot: bots tendem a preencher todos os campos.
+     * Este campo fica oculto para humanos. Retornamos um
+     * "sucesso" falso para não sinalizar a rejeição.
+     */
+    if (getString(formData, "website")) {
+      return {
+        success:
+          "Cadastro recebido com sucesso! Nossa equipe entrará em contato.",
+      };
+    }
+
+    /*
+     * Rate limit best-effort por IP (ver lib/rate-limit.ts).
+     */
+    const requestHeaders = await headers();
+
+    const forwardedFor =
+      requestHeaders.get("x-forwarded-for") ?? "";
+
+    const clientIp =
+      forwardedFor.split(",")[0]?.trim() ||
+      requestHeaders.get("x-real-ip") ||
+      "desconhecido";
+
+    const rateLimit = checkRateLimit(
+      `support-form:${slug}:${clientIp}`,
+      5,
+      600
+    );
+
+    if (!rateLimit.allowed) {
+      return {
+        error:
+          "Recebemos muitas tentativas deste dispositivo. Aguarde alguns minutos e tente novamente.",
+      };
+    }
 
     const fullName = getString(
       formData,
@@ -293,6 +411,38 @@ export async function submitPublicSupportForm(
     }
 
     /*
+     * Proteção contra flood na campanha: limita o volume
+     * de cadastros públicos recebidos numa janela curta.
+     */
+    const burstWindowStart = new Date(
+      Date.now() - 60_000
+    ).toISOString();
+
+    const { count: recentPublicCount } =
+      await supabase
+        .from("supporters")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq(
+          "campaign_id",
+          landing.campaign_id
+        )
+        .eq("origin", "landing_page")
+        .gte(
+          "created_at",
+          burstWindowStart
+        );
+
+    if ((recentPublicCount ?? 0) >= 15) {
+      return {
+        error:
+          "Estamos recebendo muitos cadastros agora. Tente novamente em instantes.",
+      };
+    }
+
+    /*
      * =====================================================
      * IDENTIFICAÇÃO AUTOMÁTICA DA REGIÃO PELO DDD
      * =====================================================
@@ -386,11 +536,7 @@ export async function submitPublicSupportForm(
         whatsappCheckError,
     } = await supabase
       .from("supporters")
-      .select(`
-        id,
-        is_active,
-        status
-      `)
+      .select(EXISTING_SUPPORTER_COLUMNS)
       .eq(
         "campaign_id",
         landing.campaign_id
@@ -404,7 +550,7 @@ export async function submitPublicSupportForm(
         null
       )
       .limit(1)
-      .maybeSingle();
+      .maybeSingle<ExistingSupporter>();
 
     if (whatsappCheckError) {
       console.error(
@@ -427,42 +573,21 @@ export async function submitPublicSupportForm(
         error: updateError,
       } = await supabase
         .from("supporters")
-        .update({
-          full_name:
-            fullName,
-
-          whatsapp,
-
-          phone:
-            phone || null,
-
-          email:
-            email || null,
-
-          city:
-            city || null,
-
-          neighborhood:
-            neighborhood ||
-            null,
-
-          area_id:
-            areaId,
-
-          status:
-            "lead",
-
-          origin:
-            "landing_page",
-
-          crm_stage:
-            "new",
-
-          notes,
-
-          is_active:
-            true,
-        })
+        .update(
+          buildPublicUpdatePatch(
+            existingByWhatsapp,
+            {
+              fullName,
+              whatsapp,
+              phone,
+              email,
+              city,
+              neighborhood,
+              areaId,
+              note: notes,
+            }
+          )
+        )
         .eq(
           "id",
           existingByWhatsapp.id
@@ -563,11 +688,7 @@ export async function submitPublicSupportForm(
           emailCheckError,
       } = await supabase
         .from("supporters")
-        .select(`
-          id,
-          is_active,
-          status
-        `)
+        .select(EXISTING_SUPPORTER_COLUMNS)
         .eq(
           "campaign_id",
           landing.campaign_id
@@ -581,7 +702,7 @@ export async function submitPublicSupportForm(
           null
         )
         .limit(1)
-        .maybeSingle();
+        .maybeSingle<ExistingSupporter>();
 
       if (emailCheckError) {
         console.error(
@@ -604,41 +725,21 @@ export async function submitPublicSupportForm(
           error: updateError,
         } = await supabase
           .from("supporters")
-          .update({
-            full_name:
-              fullName,
-
-            whatsapp,
-
-            phone:
-              phone || null,
-
-            email,
-
-            city:
-              city || null,
-
-            neighborhood:
-              neighborhood ||
-              null,
-
-            area_id:
-              areaId,
-
-            status:
-              "lead",
-
-            origin:
-              "landing_page",
-
-            crm_stage:
-              "new",
-
-            notes,
-
-            is_active:
-              true,
-          })
+          .update(
+            buildPublicUpdatePatch(
+              existingByEmail,
+              {
+                fullName,
+                whatsapp,
+                phone,
+                email,
+                city,
+                neighborhood,
+                areaId,
+                note: notes,
+              }
+            )
+          )
           .eq(
             "id",
             existingByEmail.id
@@ -810,9 +911,7 @@ export async function submitPublicSupportForm(
 
       return {
         error:
-          insertError?.message
-            ? `Erro ao cadastrar: ${insertError.message}`
-            : "Não foi possível concluir seu cadastro.",
+          "Não foi possível concluir seu cadastro. Tente novamente.",
       };
     }
 

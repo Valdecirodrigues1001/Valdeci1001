@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { authorizeAction } from "@/lib/auth/campaign-access";
+import { getString } from "@/lib/form-data";
 import { createClient } from "@/lib/supabase/server";
 
 export type AgendaActionState = {
@@ -9,41 +12,45 @@ export type AgendaActionState = {
 };
 
 async function getCurrentCampaign() {
-  const supabase = await createClient();
+  const { authorized, access, supabase } =
+    await authorizeAction("events.manage");
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  if (!authorized) {
     return {
-      supabase,
+      supabase: await createClient(),
       user: null,
       campaignId: null,
     };
   }
 
-  const { data: membership } = await supabase
-    .from("campaign_members")
-    .select("campaign_id")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1)
-    .maybeSingle();
-
   return {
     supabase,
-    user,
-    campaignId: membership?.campaign_id ?? null,
+    user: { id: access.userId },
+    campaignId: access.campaignId,
   };
 }
 
-function getTextValue(formData: FormData, field: string) {
-  return String(formData.get(field) ?? "").trim();
-}
 
 export async function createCampaignEvent(
   _previousState: AgendaActionState,
+  formData: FormData
+): Promise<AgendaActionState> {
+  try {
+    return await createCampaignEventInternal(formData);
+  } catch (error) {
+    console.error(
+      "Erro inesperado ao cadastrar compromisso:",
+      error
+    );
+
+    return {
+      error:
+        "Ocorreu um erro inesperado ao cadastrar o compromisso. Tente novamente.",
+    };
+  }
+}
+
+async function createCampaignEventInternal(
   formData: FormData
 ): Promise<AgendaActionState> {
   const { supabase, user, campaignId } =
@@ -55,16 +62,16 @@ export async function createCampaignEvent(
     };
   }
 
-  const title = getTextValue(formData, "title");
-  const description = getTextValue(formData, "description");
-  const eventType = getTextValue(formData, "event_type");
-  const status = getTextValue(formData, "status");
+  const title = getString(formData, "title");
+  const description = getString(formData, "description");
+  const eventType = getString(formData, "event_type");
+  const status = getString(formData, "status");
 
-  const startDate = getTextValue(formData, "start_date");
-  const startTime = getTextValue(formData, "start_time");
+  const startDate = getString(formData, "start_date");
+  const startTime = getString(formData, "start_time");
 
-  const endDate = getTextValue(formData, "end_date");
-  const endTime = getTextValue(formData, "end_time");
+  const endDate = getString(formData, "end_date");
+  const endTime = getString(formData, "end_time");
 
   if (!title) {
     return {
@@ -115,7 +122,7 @@ export async function createCampaignEvent(
     ? 0
     : Math.max(0, estimatedAudienceValue);
 
-  const leaderId = getTextValue(formData, "leader_id");
+  const leaderId = getString(formData, "leader_id");
 
   const { error } = await supabase
     .from("campaign_events")
@@ -127,15 +134,15 @@ export async function createCampaignEvent(
       status: status || "scheduled",
       start_at: startAt.toISOString(),
       end_at: endAt?.toISOString() ?? null,
-      city: getTextValue(formData, "city") || null,
+      city: getString(formData, "city") || null,
       neighborhood:
-        getTextValue(formData, "neighborhood") || null,
-      address: getTextValue(formData, "address") || null,
+        getString(formData, "neighborhood") || null,
+      address: getString(formData, "address") || null,
       location_name:
-        getTextValue(formData, "location_name") || null,
+        getString(formData, "location_name") || null,
       estimated_audience: estimatedAudience,
       leader_id: leaderId || null,
-      notes: getTextValue(formData, "notes") || null,
+      notes: getString(formData, "notes") || null,
       responsible_user_id: user.id,
       created_by: user.id,
     });
@@ -184,7 +191,7 @@ export async function updateEventStatus(
     return;
   }
 
-  const status = getTextValue(formData, "status");
+  const status = getString(formData, "status");
 
   const allowedStatuses = [
     "scheduled",
@@ -249,6 +256,28 @@ export async function updateCampaignEvent(
   _previousState: AgendaActionState,
   formData: FormData
 ): Promise<AgendaActionState> {
+  try {
+    return await updateCampaignEventInternal(
+      eventId,
+      formData
+    );
+  } catch (error) {
+    console.error(
+      "Erro inesperado ao atualizar compromisso:",
+      error
+    );
+
+    return {
+      error:
+        "Ocorreu um erro inesperado ao atualizar o compromisso. Tente novamente.",
+    };
+  }
+}
+
+async function updateCampaignEventInternal(
+  eventId: string,
+  formData: FormData
+): Promise<AgendaActionState> {
   const { supabase, user, campaignId } =
     await getCurrentCampaign();
 
@@ -258,16 +287,16 @@ export async function updateCampaignEvent(
     };
   }
 
-  const title = getTextValue(formData, "title");
-  const description = getTextValue(formData, "description");
-  const eventType = getTextValue(formData, "event_type");
-  const status = getTextValue(formData, "status");
+  const title = getString(formData, "title");
+  const description = getString(formData, "description");
+  const eventType = getString(formData, "event_type");
+  const status = getString(formData, "status");
 
-  const startDate = getTextValue(formData, "start_date");
-  const startTime = getTextValue(formData, "start_time");
+  const startDate = getString(formData, "start_date");
+  const startTime = getString(formData, "start_time");
 
-  const endDate = getTextValue(formData, "end_date");
-  const endTime = getTextValue(formData, "end_time");
+  const endDate = getString(formData, "end_date");
+  const endTime = getString(formData, "end_time");
 
   if (!title) {
     return {
@@ -317,7 +346,7 @@ export async function updateCampaignEvent(
     ? 0
     : Math.max(0, estimatedAudienceValue);
 
-  const leaderId = getTextValue(formData, "leader_id");
+  const leaderId = getString(formData, "leader_id");
 
   const allowedStatuses = [
     "scheduled",
@@ -349,15 +378,15 @@ export async function updateCampaignEvent(
         : "scheduled",
       start_at: startAt.toISOString(),
       end_at: endAt?.toISOString() ?? null,
-      city: getTextValue(formData, "city") || null,
+      city: getString(formData, "city") || null,
       neighborhood:
-        getTextValue(formData, "neighborhood") || null,
-      address: getTextValue(formData, "address") || null,
+        getString(formData, "neighborhood") || null,
+      address: getString(formData, "address") || null,
       location_name:
-        getTextValue(formData, "location_name") || null,
+        getString(formData, "location_name") || null,
       estimated_audience: estimatedAudience,
       leader_id: leaderId || null,
-      notes: getTextValue(formData, "notes") || null,
+      notes: getString(formData, "notes") || null,
     })
     .eq("id", eventId)
     .eq("campaign_id", campaignId);
@@ -392,7 +421,7 @@ export async function addEventMember(
     return;
   }
 
-  const userId = getTextValue(formData, "user_id");
+  const userId = getString(formData, "user_id");
 
   if (!userId) {
     return;
@@ -514,17 +543,17 @@ export async function completeCampaignEvent(
     ? 0
     : Math.max(0, actualAudienceValue);
 
-  const outcome = getTextValue(formData, "outcome");
+  const outcome = getString(formData, "outcome");
 
   const followUpRequired =
     formData.get("follow_up_required") === "on";
 
-  const followUpNotes = getTextValue(
+  const followUpNotes = getString(
     formData,
     "follow_up_notes"
   );
 
-  const followUpDueDate = getTextValue(
+  const followUpDueDate = getString(
   formData,
   "follow_up_due_date"
 );

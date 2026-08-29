@@ -23,7 +23,94 @@ function isAtlasSystemDomain(
   );
 }
 
+/*
+ * Cache em memória para a resolução domínio -> slug.
+ *
+ * A cada request em domínio próprio o proxy fazia uma
+ * chamada à REST do Supabase. Aqui guardamos o resultado
+ * (inclusive o negativo) por um curto período. Em serverless
+ * cada isolate tem seu próprio cache, o que já elimina a
+ * maior parte das chamadas repetidas.
+ */
+type DomainCacheEntry = {
+  slug: string | null;
+  expiresAt: number;
+};
+
+const DOMAIN_CACHE_TTL_MS = 60_000;
+const DOMAIN_CACHE_MAX_ENTRIES = 500;
+
+const domainSlugCache = new Map<
+  string,
+  DomainCacheEntry
+>();
+
+function readDomainCache(
+  hostname: string
+): DomainCacheEntry | null {
+  const entry = domainSlugCache.get(hostname);
+
+  if (!entry) {
+    return null;
+  }
+
+  if (entry.expiresAt <= Date.now()) {
+    domainSlugCache.delete(hostname);
+
+    return null;
+  }
+
+  return entry;
+}
+
+function writeDomainCache(
+  hostname: string,
+  slug: string | null
+) {
+  if (
+    domainSlugCache.size >=
+    DOMAIN_CACHE_MAX_ENTRIES
+  ) {
+    const now = Date.now();
+
+    for (const [key, entry] of domainSlugCache) {
+      if (entry.expiresAt <= now) {
+        domainSlugCache.delete(key);
+      }
+    }
+
+    if (
+      domainSlugCache.size >=
+      DOMAIN_CACHE_MAX_ENTRIES
+    ) {
+      domainSlugCache.clear();
+    }
+  }
+
+  domainSlugCache.set(hostname, {
+    slug,
+    expiresAt: Date.now() + DOMAIN_CACHE_TTL_MS,
+  });
+}
+
 async function getLandingSlugByDomain(
+  hostname: string
+): Promise<string | null> {
+  const cached = readDomainCache(hostname);
+
+  if (cached) {
+    return cached.slug;
+  }
+
+  const slug =
+    await fetchLandingSlugByDomain(hostname);
+
+  writeDomainCache(hostname, slug);
+
+  return slug;
+}
+
+async function fetchLandingSlugByDomain(
   hostname: string
 ): Promise<string | null> {
   const supabaseUrl =

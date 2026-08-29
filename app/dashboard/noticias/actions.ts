@@ -2,6 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
+import { authorizeAction } from "@/lib/auth/campaign-access";
+import {
+  getBoolean,
+  getFile,
+  getOptionalString,
+  getString,
+} from "@/lib/form-data";
+import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
 
 import type {
@@ -30,80 +38,10 @@ const allowedImageTypes = [
   "image/webp",
 ];
 
-function getString(
-  formData: FormData,
-  field: string
-): string {
-  const value = formData.get(field);
-
-  return typeof value === "string"
-    ? value.trim()
-    : "";
-}
-
-function getOptionalString(
-  formData: FormData,
-  field: string
-): string | null {
-  const value = getString(
-    formData,
-    field
-  );
-
-  return value || null;
-}
-
-function getBoolean(
-  formData: FormData,
-  field: string
-): boolean {
-  const value =
-    formData.get(field);
-
-  return (
-    value === "true" ||
-    value === "1" ||
-    value === "on"
-  );
-}
-
 function getImageFile(
   formData: FormData
 ): File | null {
-  const file =
-    formData.get(
-      "cover_image_file"
-    );
-
-  if (!(file instanceof File)) {
-    return null;
-  }
-
-  if (file.size === 0) {
-    return null;
-  }
-
-  return file;
-}
-
-function slugify(
-  value: string
-): string {
-  return value
-    .normalize("NFD")
-    .replace(
-      /[\u0300-\u036f]/g,
-      ""
-    )
-    .toLowerCase()
-    .trim()
-    .replace(
-      /[^a-z0-9\s-]/g,
-      ""
-    )
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+  return getFile(formData, "cover_image_file");
 }
 
 function getPostStatus(
@@ -255,70 +193,18 @@ function validatePost(
 }
 
 async function getCampaignContext(): Promise<CampaignContext> {
-  const supabase =
-    await createClient();
+  const { authorized, access } =
+    await authorizeAction("news.manage");
 
-  const {
-    data: { user },
-    error: authError,
-  } =
-    await supabase.auth.getUser();
-
-  if (
-    authError ||
-    !user
-  ) {
+  if (!authorized) {
     throw new Error(
-      "Usuário não autenticado."
-    );
-  }
-
-  const {
-    data: membership,
-    error,
-  } = await supabase
-    .from("campaign_members")
-    .select("campaign_id")
-    .eq(
-      "user_id",
-      user.id
-    )
-    .eq(
-      "is_active",
-      true
-    )
-    .order(
-      "created_at",
-      {
-        ascending: true,
-      }
-    )
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error(
-      "Erro ao identificar campanha:",
-      error
-    );
-
-    throw new Error(
-      "Não foi possível identificar a campanha."
-    );
-  }
-
-  if (
-    !membership?.campaign_id
-  ) {
-    throw new Error(
-      "Seu usuário não está vinculado a uma campanha ativa."
+      "Você não possui permissão para gerenciar notícias."
     );
   }
 
   return {
-    userId: user.id,
-    campaignId:
-      membership.campaign_id,
+    userId: access.userId,
+    campaignId: access.campaignId,
   };
 }
 
@@ -441,7 +327,7 @@ async function uploadPostImage(
   );
 
   throw new Error(
-    `Não foi possível enviar a imagem de capa: ${uploadError.message}`
+    "Não foi possível enviar a imagem de capa."
   );
 }
 

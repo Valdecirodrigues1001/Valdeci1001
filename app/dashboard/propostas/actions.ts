@@ -1,6 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { authorizeAction } from "@/lib/auth/campaign-access";
+import {
+  getBoolean,
+  getNonNegativeInteger,
+  getOptionalString,
+  getString,
+} from "@/lib/form-data";
+import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProposalActionState = {
@@ -13,63 +22,6 @@ type CampaignContext = {
   userId: string;
   campaignId: string;
 };
-
-function getString(
-  formData: FormData,
-  field: string
-): string {
-  const value = formData.get(field);
-
-  return typeof value === "string"
-    ? value.trim()
-    : "";
-}
-
-function getOptionalString(
-  formData: FormData,
-  field: string
-): string | null {
-  const value = getString(formData, field);
-
-  return value || null;
-}
-
-function getBoolean(
-  formData: FormData,
-  field: string
-): boolean {
-  const value = formData.get(field);
-
-  return (
-    value === "true" ||
-    value === "on" ||
-    value === "1"
-  );
-}
-
-function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-function parseDisplayOrder(formData: FormData): number {
-  const value = Number(
-    getString(formData, "display_order") || "0"
-  );
-
-  if (!Number.isInteger(value) || value < 0) {
-    return 0;
-  }
-
-  return value;
-}
 
 function validateEditorContent(
   formData: FormData
@@ -145,46 +97,19 @@ if (contentError) {
 }
 
 async function getCampaignContext(): Promise<CampaignContext> {
-  const supabase = await createClient();
+  const { authorized, access } = await authorizeAction(
+    "proposals.manage"
+  );
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    throw new Error("Usuário não autenticado.");
-  }
-
-  const { data: membership, error } = await supabase
-    .from("campaign_members")
-    .select("campaign_id")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error(
-      "Erro ao identificar campanha:",
-      error
-    );
-
+  if (!authorized) {
     throw new Error(
-      "Não foi possível identificar a campanha."
-    );
-  }
-
-  if (!membership?.campaign_id) {
-    throw new Error(
-      "Seu usuário não está vinculado a uma campanha ativa."
+      "Você não possui permissão para gerenciar propostas."
     );
   }
 
   return {
-    userId: user.id,
-    campaignId: membership.campaign_id,
+    userId: access.userId,
+    campaignId: access.campaignId,
   };
 }
 
@@ -239,11 +164,6 @@ export async function createProposal(
   _previousState: ProposalActionState,
   formData: FormData
 ): Promise<ProposalActionState> {
-  console.log(
-    "ACTION EXECUTADA: CREATE",
-    getString(formData, "title")
-  );
-
   try {
     const validation = validateProposal(formData);
 
@@ -262,10 +182,7 @@ export async function createProposal(
       campaignId
     );
 
-  const {
-  data: createdProposal,
-  error,
-} = await supabase
+  const { error } = await supabase
   .from("campaign_proposals")
   .insert({
     campaign_id: campaignId,
@@ -299,7 +216,10 @@ export async function createProposal(
     ),
 
     display_order:
-      parseDisplayOrder(formData),
+      getNonNegativeInteger(
+        formData,
+        "display_order"
+      ),
 
     is_featured:
       getBoolean(
@@ -314,9 +234,7 @@ export async function createProposal(
       ),
 
    created_by: userId,
-})
-.select("id, title, slug, campaign_id")
-.single();
+});
 
    if (error) {
   console.error("Erro ao criar proposta:", {
@@ -336,7 +254,8 @@ export async function createProposal(
 
   return {
     success: false,
-    message: `Erro ${error.code}: ${error.message}`,
+    message:
+      "Não foi possível cadastrar a proposta.",
   };
 }
 
@@ -364,12 +283,6 @@ export async function updateProposal(
   _previousState: ProposalActionState,
   formData: FormData
 ): Promise<ProposalActionState> {
-  console.log(
-    "ACTION EXECUTADA: UPDATE",
-    proposalId,
-    getString(formData, "title")
-  );
-
   try {
     if (!proposalId) {
       return {
@@ -439,7 +352,10 @@ export async function updateProposal(
             "icon"
           ),
           display_order:
-            parseDisplayOrder(formData),
+            getNonNegativeInteger(
+              formData,
+              "display_order"
+            ),
           is_featured: getBoolean(
             formData,
             "is_featured"

@@ -162,6 +162,28 @@ export default function SupportForm({
           `${accentColor}0A`,
       }}
     >
+      {/*
+        Honeypot anti-spam: escondido de humanos.
+        Bots que preenchem todos os campos são rejeitados
+        silenciosamente no servidor.
+      */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-[9999px] h-0 w-0 overflow-hidden"
+      >
+        <label htmlFor="support_website">
+          Não preencha este campo
+        </label>
+
+        <input
+          id="support_website"
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+        />
+      </div>
+
       <div className="flex items-start gap-4">
         <div
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"

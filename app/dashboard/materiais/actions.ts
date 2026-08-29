@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+
+import { authorizeAction } from "@/lib/auth/campaign-access";
 
 const BUCKET_NAME = "campaign-materials";
 
@@ -84,39 +84,19 @@ function getMaterialGroup(category: MaterialCategory) {
 }
 
 async function getAuthenticatedCampaign() {
-  const supabase = await createClient();
+  const { authorized, access, supabase } =
+    await authorizeAction("materials.manage");
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    redirect("/login");
-  }
-
-  const { data: membership, error: membershipError } =
-    await supabase
-      .from("campaign_members")
-      .select(`
-        id,
-        campaign_id,
-        is_active
-      `)
-      .eq("user_id", user.id)
-      .eq("is_active", true)
-      .maybeSingle();
-
-  if (membershipError || !membership) {
+  if (!authorized) {
     throw new Error(
-      "Você não possui acesso a uma campanha ativa."
+      "Você não possui permissão para gerenciar materiais."
     );
   }
 
   return {
     supabase,
-    user,
-    membership,
+    user: { id: access.userId },
+    membership: { campaign_id: access.campaignId },
   };
 }
 

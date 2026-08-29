@@ -39,6 +39,7 @@ async function getCurrentCampaignId() {
     .select("campaign_id")
     .eq("user_id", user.id)
     .eq("is_active", true)
+    .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
 
@@ -81,7 +82,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData | null> {
     });
 
     throw new Error(
-      `Não foi possível carregar as configurações: ${error.message}`
+      "Não foi possível carregar as configurações."
     );
   }
 

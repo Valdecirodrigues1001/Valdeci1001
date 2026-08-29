@@ -1,6 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+
+import { authorizeAction } from "@/lib/auth/campaign-access";
+import {
+  getBoolean,
+  getOptionalString,
+  getString,
+} from "@/lib/form-data";
+import { slugify } from "@/lib/slug";
 import { createClient } from "@/lib/supabase/server";
 
 const LANDING_PAGE_BUCKET = "landing-pages";
@@ -99,31 +107,6 @@ const IMAGE_CONFIG: Record<
   },
 };
 
-function getString(formData: FormData, field: string): string {
-  const value = formData.get(field);
-
-  if (typeof value !== "string") {
-    return "";
-  }
-
-  return value.trim();
-}
-
-function getOptionalString(
-  formData: FormData,
-  field: string
-): string | null {
-  const value = getString(formData, field);
-
-  return value || null;
-}
-
-function getBoolean(formData: FormData, field: string): boolean {
-  const value = formData.get(field);
-
-  return value === "true" || value === "on" || value === "1";
-}
-
 function normalizeHexColor(
   value: string | null,
   fallback: string
@@ -159,18 +142,6 @@ function normalizeDomain(
   return normalized || null;
 }
 
-function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
 function sanitizeFileName(fileName: string): string {
   const extension = fileName.split(".").pop()?.toLowerCase() || "webp";
 
@@ -199,37 +170,18 @@ function validateImage(file: File): string | null {
 }
 
 async function getCampaignContext(): Promise<CampaignContext> {
-  const supabase = await createClient();
+  const { authorized, access } =
+    await authorizeAction("landing.manage");
 
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    throw new Error("Usuário não autenticado.");
-  }
-
- const { data: membership, error: membershipError } = await supabase
-  .from("campaign_members")
-  .select("campaign_id")
-  .eq("user_id", user.id)
-  .eq("is_active", true)
-  .order("created_at", { ascending: true })
-  .limit(1)
-  .maybeSingle();
-
-  if (membershipError) {
-    throw new Error("Não foi possível identificar a campanha do usuário.");
-  }
-
-  if (!membership?.campaign_id) {
-    throw new Error("Este usuário não está vinculado a uma campanha.");
+  if (!authorized) {
+    throw new Error(
+      "Você não possui permissão para editar a Landing Page."
+    );
   }
 
   return {
-    userId: user.id,
-    campaignId: membership.campaign_id,
+    userId: access.userId,
+    campaignId: access.campaignId,
   };
 }
 
