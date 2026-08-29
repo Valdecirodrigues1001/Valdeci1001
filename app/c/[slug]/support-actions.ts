@@ -21,58 +21,30 @@ export type PublicSupportFormState = {
   errors?: {
     full_name?: string;
     whatsapp?: string;
-    email?: string;
-    city?: string;
   };
 };
 
-function normalizePhone(
-  value: string
-): string {
+function normalizePhone(value: string): string {
   return value.replace(/\D/g, "");
-}
-
-function normalizeEmail(
-  value: string
-): string {
-  return value.trim().toLowerCase();
-}
-
-function isValidEmail(
-  value: string
-): boolean {
-  if (!value) {
-    return true;
-  }
-
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    value
-  );
 }
 
 /*
  * Identifica o DDD tanto em:
  *
- * 51999999999
+ *   51999999999
  *
  * quanto em:
  *
- * 5551999999999
+ *   5551999999999
  */
-function getDDD(
-  phone: string
-): string | null {
-  const normalized =
-    normalizePhone(phone);
+function getDDD(phone: string): string | null {
+  const normalized = normalizePhone(phone);
 
   if (!normalized) {
     return null;
   }
 
-  /*
-   * Número brasileiro com código
-   * do país 55.
-   */
+  /* Número brasileiro com código do país 55. */
   if (
     normalized.startsWith("55") &&
     normalized.length >= 12
@@ -80,10 +52,7 @@ function getDDD(
     return normalized.slice(2, 4);
   }
 
-  /*
-   * Número informado somente
-   * com DDD + telefone.
-   */
+  /* Número informado somente com DDD + telefone. */
   if (normalized.length >= 10) {
     return normalized.slice(0, 2);
   }
@@ -91,53 +60,27 @@ function getDDD(
   return null;
 }
 
-function buildNotes(
-  participationType: string,
-  message: string,
+function buildRegionNote(
   regionalAreaName?: string | null
 ): string | null {
-  const notes: string[] = [];
-
-  if (participationType) {
-    notes.push(
-      `Interesse informado pela Landing Page: ${participationType}.`
-    );
+  if (!regionalAreaName) {
+    return null;
   }
 
-  if (regionalAreaName) {
-    notes.push(
-      `Região identificada automaticamente pelo DDD: ${regionalAreaName}.`
-    );
-  }
-
-  if (message) {
-    notes.push(
-      `Mensagem: ${message}`
-    );
-  }
-
-  return notes.length > 0
-    ? notes.join("\n\n")
-    : null;
+  return `Região identificada automaticamente pelo DDD: ${regionalAreaName}.`;
 }
 
 type RegionalArea = {
   id: string;
   name: string;
   ddd: string | null;
-  whatsapp_group_url:
-    | string
-    | null;
+  whatsapp_group_url: string | null;
 };
 
 type ExistingSupporter = {
   id: string;
   full_name: string | null;
-  whatsapp: string | null;
-  phone: string | null;
-  email: string | null;
   city: string | null;
-  neighborhood: string | null;
   area_id: string | null;
   notes: string | null;
 };
@@ -145,11 +88,7 @@ type ExistingSupporter = {
 const EXISTING_SUPPORTER_COLUMNS = `
   id,
   full_name,
-  whatsapp,
-  phone,
-  email,
   city,
-  neighborhood,
   area_id,
   notes
 `;
@@ -157,19 +96,16 @@ const EXISTING_SUPPORTER_COLUMNS = `
 /*
  * A atualização a partir do formulário público é
  * NÃO destrutiva: apenas preenche campos vazios e
- * anexa a mensagem às observações. Status, estágio
- * do CRM e o flag is_active nunca são alterados por
- * aqui — isso é responsabilidade da equipe no painel.
+ * anexa a nota de região às observações. Status,
+ * estágio do CRM e o flag is_active nunca são
+ * alterados por aqui — isso é responsabilidade da
+ * equipe no painel.
  */
 function buildPublicUpdatePatch(
   existing: ExistingSupporter,
   incoming: {
     fullName: string;
-    whatsapp: string;
-    phone: string;
-    email: string;
     city: string;
-    neighborhood: string;
     areaId: string | null;
     note: string | null;
   }
@@ -187,28 +123,8 @@ function buildPublicUpdatePatch(
       existing.full_name,
       incoming.fullName
     ),
-    whatsapp: fillIfEmpty(
-      existing.whatsapp,
-      incoming.whatsapp
-    ),
-    phone: fillIfEmpty(
-      existing.phone,
-      incoming.phone
-    ),
-    email: fillIfEmpty(
-      existing.email,
-      incoming.email
-    ),
-    city: fillIfEmpty(
-      existing.city,
-      incoming.city
-    ),
-    neighborhood: fillIfEmpty(
-      existing.neighborhood,
-      incoming.neighborhood
-    ),
-    area_id:
-      existing.area_id ?? incoming.areaId,
+    city: fillIfEmpty(existing.city, incoming.city),
+    area_id: existing.area_id ?? incoming.areaId,
   };
 
   if (incoming.note) {
@@ -227,15 +143,12 @@ export async function submitPublicSupportForm(
 ): Promise<PublicSupportFormState> {
   try {
     /*
-     * Esta é uma Server Action.
-     *
-     * Usamos o cliente administrativo
-     * somente no servidor para permitir
-     * o cadastro público sem abrir
-     * policies anon na tabela supporters.
+     * Esta é uma Server Action. Usamos o cliente
+     * administrativo somente no servidor para permitir
+     * o cadastro público sem abrir policies anon na
+     * tabela supporters.
      */
-    const supabase =
-      createAdminClient();
+    const supabase = createAdminClient();
 
     /*
      * Honeypot: bots tendem a preencher todos os campos.
@@ -275,74 +188,23 @@ export async function submitPublicSupportForm(
       };
     }
 
-    const fullName = getString(
-      formData,
-      "full_name"
-    );
-
+    const fullName = getString(formData, "full_name");
     const whatsappInput = getString(
       formData,
       "whatsapp"
     );
+    const city = getString(formData, "city");
 
-    const phoneInput = getString(
-      formData,
-      "phone"
-    );
+    const whatsapp = normalizePhone(whatsappInput);
 
-    const emailInput = getString(
-      formData,
-      "email"
-    );
-
-    const city = getString(
-      formData,
-      "city"
-    );
-
-    const neighborhood = getString(
-      formData,
-      "neighborhood"
-    );
-
-    const participationType =
-      getString(
-        formData,
-        "participation_type"
-      );
-
-    const message = getString(
-      formData,
-      "message"
-    );
-
-    const whatsapp =
-      normalizePhone(
-        whatsappInput
-      );
-
-    const phone =
-      normalizePhone(
-        phoneInput
-      );
-
-    const email =
-      normalizeEmail(
-        emailInput
-      );
-
-    const errors:
-      PublicSupportFormState["errors"] =
-      {};
+    const errors: PublicSupportFormState["errors"] = {};
 
     if (!fullName) {
-      errors.full_name =
-        "Informe seu nome completo.";
+      errors.full_name = "Informe seu nome completo.";
     }
 
     if (!whatsapp) {
-      errors.whatsapp =
-        "Informe seu WhatsApp.";
+      errors.whatsapp = "Informe seu WhatsApp.";
     } else if (
       whatsapp.length < 10 ||
       whatsapp.length > 13
@@ -351,18 +213,9 @@ export async function submitPublicSupportForm(
         "Informe um WhatsApp válido com DDD.";
     }
 
-    if (!isValidEmail(email)) {
-      errors.email =
-        "Informe um e-mail válido.";
-    }
-
-    if (
-      Object.keys(errors).length >
-      0
-    ) {
+    if (Object.keys(errors).length > 0) {
       return {
-        error:
-          "Revise os campos destacados.",
+        error: "Revise os campos destacados.",
         errors,
       };
     }
@@ -370,26 +223,19 @@ export async function submitPublicSupportForm(
     /*
      * Localiza a campanha pela Landing.
      */
-    const {
-      data: landing,
-      error: landingError,
-    } = await supabase
-      .from(
-        "campaign_landing_pages"
-      )
-      .select(`
-        id,
-        campaign_id,
-        slug,
-        public_name,
-        is_published
-      `)
-      .eq("slug", slug)
-      .eq(
-        "is_published",
-        true
-      )
-      .maybeSingle();
+    const { data: landing, error: landingError } =
+      await supabase
+        .from("campaign_landing_pages")
+        .select(`
+          id,
+          campaign_id,
+          slug,
+          public_name,
+          is_published
+        `)
+        .eq("slug", slug)
+        .eq("is_published", true)
+        .maybeSingle();
 
     if (landingError) {
       console.error(
@@ -418,22 +264,15 @@ export async function submitPublicSupportForm(
       Date.now() - 60_000
     ).toISOString();
 
-    const { count: recentPublicCount } =
-      await supabase
-        .from("supporters")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq(
-          "campaign_id",
-          landing.campaign_id
-        )
-        .eq("origin", "landing_page")
-        .gte(
-          "created_at",
-          burstWindowStart
-        );
+    const { count: recentPublicCount } = await supabase
+      .from("supporters")
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
+      .eq("campaign_id", landing.campaign_id)
+      .eq("origin", "landing_page")
+      .gte("created_at", burstWindowStart);
 
     if ((recentPublicCount ?? 0) >= 15) {
       return {
@@ -448,80 +287,49 @@ export async function submitPublicSupportForm(
      * =====================================================
      */
 
-    const ddd =
-      getDDD(whatsapp);
+    const ddd = getDDD(whatsapp);
 
-    let regionalArea:
-      | RegionalArea
-      | null = null;
+    let regionalArea: RegionalArea | null = null;
 
     if (ddd) {
-      const {
-        data: area,
-        error: areaError,
-      } = await supabase
-        .from("campaign_areas")
-        .select(`
-          id,
-          name,
-          ddd,
-          whatsapp_group_url
-        `)
-        .eq(
-          "campaign_id",
-          landing.campaign_id
-        )
-        .eq("ddd", ddd)
-        .eq(
-          "is_active",
-          true
-        )
-        .limit(1)
-        .maybeSingle();
+      const { data: area, error: areaError } =
+        await supabase
+          .from("campaign_areas")
+          .select(`
+            id,
+            name,
+            ddd,
+            whatsapp_group_url
+          `)
+          .eq("campaign_id", landing.campaign_id)
+          .eq("ddd", ddd)
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
 
       if (areaError) {
-        /*
-         * Falha na busca da área não
-         * impede o cadastro.
-         */
+        /* Falha na busca da área não impede o cadastro. */
         console.error(
           "Erro ao identificar região pelo DDD:",
           {
             ddd,
-            message:
-              areaError.message,
-            code:
-              areaError.code,
-            details:
-              areaError.details,
-            hint:
-              areaError.hint,
+            message: areaError.message,
+            code: areaError.code,
+            details: areaError.details,
+            hint: areaError.hint,
           }
         );
       } else if (area) {
-        regionalArea =
-          area as RegionalArea;
+        regionalArea = area as RegionalArea;
       }
     }
 
-    const areaId =
-      regionalArea?.id ?? null;
-
+    const areaId = regionalArea?.id ?? null;
     const groupUrl =
-      regionalArea
-        ?.whatsapp_group_url ??
-      null;
+      regionalArea?.whatsapp_group_url ?? null;
+    const groupName = regionalArea?.name ?? null;
 
-    const groupName =
-      regionalArea?.name ??
-      null;
-
-    const notes =
-      buildNotes(
-        participationType,
-        message,
-        groupName
-      );
+    const note = buildRegionNote(groupName);
 
     /*
      * =====================================================
@@ -530,25 +338,14 @@ export async function submitPublicSupportForm(
      */
 
     const {
-      data:
-        existingByWhatsapp,
-      error:
-        whatsappCheckError,
+      data: existingByWhatsapp,
+      error: whatsappCheckError,
     } = await supabase
       .from("supporters")
       .select(EXISTING_SUPPORTER_COLUMNS)
-      .eq(
-        "campaign_id",
-        landing.campaign_id
-      )
-      .eq(
-        "whatsapp",
-        whatsapp
-      )
-      .is(
-        "deleted_at",
-        null
-      )
+      .eq("campaign_id", landing.campaign_id)
+      .eq("whatsapp", whatsapp)
+      .is("deleted_at", null)
       .limit(1)
       .maybeSingle<ExistingSupporter>();
 
@@ -565,41 +362,22 @@ export async function submitPublicSupportForm(
     }
 
     /*
-     * Já existe pelo WhatsApp:
-     * atualiza o cadastro.
+     * Já existe pelo WhatsApp: atualiza o cadastro.
      */
     if (existingByWhatsapp) {
-      const {
-        error: updateError,
-      } = await supabase
+      const { error: updateError } = await supabase
         .from("supporters")
         .update(
-          buildPublicUpdatePatch(
-            existingByWhatsapp,
-            {
-              fullName,
-              whatsapp,
-              phone,
-              email,
-              city,
-              neighborhood,
-              areaId,
-              note: notes,
-            }
-          )
+          buildPublicUpdatePatch(existingByWhatsapp, {
+            fullName,
+            city,
+            areaId,
+            note,
+          })
         )
-        .eq(
-          "id",
-          existingByWhatsapp.id
-        )
-        .eq(
-          "campaign_id",
-          landing.campaign_id
-        )
-        .is(
-          "deleted_at",
-          null
-        );
+        .eq("id", existingByWhatsapp.id)
+        .eq("campaign_id", landing.campaign_id)
+        .is("deleted_at", null);
 
       if (updateError) {
         console.error(
@@ -613,33 +391,17 @@ export async function submitPublicSupportForm(
         };
       }
 
-      const {
-        error: activityError,
-      } = await supabase
-        .from(
-          "supporter_activities"
-        )
+      const { error: activityError } = await supabase
+        .from("supporter_activities")
         .insert({
-          campaign_id:
-            landing.campaign_id,
-
-          supporter_id:
-            existingByWhatsapp.id,
-
-          activity_type:
-            "updated",
-
+          campaign_id: landing.campaign_id,
+          supporter_id: existingByWhatsapp.id,
+          activity_type: "updated",
           title:
             "Contato confirmado pela Landing Page",
-
-          description:
-            groupName
-              ? participationType
-                ? `Contato atualizado com interesse em: ${participationType}. Região identificada: ${groupName}.`
-                : `O contato confirmou seu apoio pelo formulário público. Região identificada: ${groupName}.`
-              : participationType
-                ? `Contato atualizado com interesse em: ${participationType}.`
-                : "O contato confirmou seu apoio pelo formulário público.",
+          description: groupName
+            ? `O contato confirmou seu apoio pelo formulário público. Região identificada: ${groupName}.`
+            : "O contato confirmou seu apoio pelo formulário público.",
         });
 
       if (activityError) {
@@ -649,182 +411,17 @@ export async function submitPublicSupportForm(
         );
       }
 
-      revalidatePath(
-        "/dashboard"
-      );
-
-      revalidatePath(
-        "/dashboard/apoiadores"
-      );
-
-      revalidatePath(
-        "/dashboard/crm"
-      );
-
-      revalidatePath(
-        "/dashboard/mobilizacao"
-      );
+      revalidatePath("/dashboard");
+      revalidatePath("/dashboard/apoiadores");
+      revalidatePath("/dashboard/crm");
+      revalidatePath("/dashboard/mobilizacao");
 
       return {
         success:
           "Cadastro confirmado com sucesso! Nossa equipe entrará em contato.",
-
         groupUrl,
         groupName,
       };
-    }
-
-    /*
-     * =====================================================
-     * VERIFICA CADASTRO EXISTENTE PELO E-MAIL
-     * =====================================================
-     */
-
-    if (email) {
-      const {
-        data:
-          existingByEmail,
-        error:
-          emailCheckError,
-      } = await supabase
-        .from("supporters")
-        .select(EXISTING_SUPPORTER_COLUMNS)
-        .eq(
-          "campaign_id",
-          landing.campaign_id
-        )
-        .eq(
-          "email",
-          email
-        )
-        .is(
-          "deleted_at",
-          null
-        )
-        .limit(1)
-        .maybeSingle<ExistingSupporter>();
-
-      if (emailCheckError) {
-        console.error(
-          "Erro ao verificar e-mail:",
-          emailCheckError
-        );
-
-        return {
-          error:
-            "Não foi possível validar seu cadastro.",
-        };
-      }
-
-      /*
-       * Já existe pelo e-mail:
-       * atualiza o cadastro.
-       */
-      if (existingByEmail) {
-        const {
-          error: updateError,
-        } = await supabase
-          .from("supporters")
-          .update(
-            buildPublicUpdatePatch(
-              existingByEmail,
-              {
-                fullName,
-                whatsapp,
-                phone,
-                email,
-                city,
-                neighborhood,
-                areaId,
-                note: notes,
-              }
-            )
-          )
-          .eq(
-            "id",
-            existingByEmail.id
-          )
-          .eq(
-            "campaign_id",
-            landing.campaign_id
-          )
-          .is(
-            "deleted_at",
-            null
-          );
-
-        if (updateError) {
-          console.error(
-            "Erro ao atualizar apoiador pelo e-mail:",
-            updateError
-          );
-
-          return {
-            error:
-              "Não foi possível atualizar seu cadastro.",
-          };
-        }
-
-        const {
-          error: activityError,
-        } = await supabase
-          .from(
-            "supporter_activities"
-          )
-          .insert({
-            campaign_id:
-              landing.campaign_id,
-
-            supporter_id:
-              existingByEmail.id,
-
-            activity_type:
-              "updated",
-
-            title:
-              "Contato confirmado pela Landing Page",
-
-            description:
-              groupName
-                ? participationType
-                  ? `Contato atualizado com interesse em: ${participationType}. Região identificada: ${groupName}.`
-                  : `O contato confirmou seu apoio pelo formulário público. Região identificada: ${groupName}.`
-                : participationType
-                  ? `Contato atualizado com interesse em: ${participationType}.`
-                  : "O contato confirmou seu apoio pelo formulário público.",
-          });
-
-        if (activityError) {
-          console.error(
-            "Erro ao registrar confirmação:",
-            activityError
-          );
-        }
-
-        revalidatePath(
-          "/dashboard"
-        );
-
-        revalidatePath(
-          "/dashboard/apoiadores"
-        );
-
-        revalidatePath(
-          "/dashboard/crm"
-        );
-
-        revalidatePath(
-          "/dashboard/mobilizacao"
-        );
-
-        return {
-          success:
-            "Cadastro confirmado com sucesso! Nossa equipe entrará em contato.",
-
-          groupUrl,
-          groupName,
-        };
-      }
     }
 
     /*
@@ -833,76 +430,37 @@ export async function submitPublicSupportForm(
      * =====================================================
      */
 
-    const {
-      data: supporter,
-      error: insertError,
-    } = await supabase
-      .from("supporters")
-      .insert({
-        campaign_id:
-          landing.campaign_id,
+    const { data: supporter, error: insertError } =
+      await supabase
+        .from("supporters")
+        .insert({
+          campaign_id: landing.campaign_id,
+          full_name: fullName,
+          whatsapp,
+          city: city || null,
 
-        full_name:
-          fullName,
+          /* A área já entra automaticamente no CRM. */
+          area_id: areaId,
 
-        whatsapp,
+          status: "lead",
+          origin: "landing_page",
+          crm_stage: "new",
+          notes: note,
+          is_active: true,
+          deleted_at: null,
+        })
+        .select("id")
+        .single();
 
-        phone:
-          phone || null,
-
-        email:
-          email || null,
-
-        city:
-          city || null,
-
-        neighborhood:
-          neighborhood ||
-          null,
-
-        /*
-         * A área já entra
-         * automaticamente no CRM.
-         */
-        area_id:
-          areaId,
-
-        status:
-          "lead",
-
-        origin:
-          "landing_page",
-
-        crm_stage:
-          "new",
-
-        notes,
-
-        is_active:
-          true,
-
-        deleted_at:
-          null,
-      })
-      .select("id")
-      .single();
-
-    if (
-      insertError ||
-      !supporter
-    ) {
+    if (insertError || !supporter) {
       console.error(
         "Erro ao cadastrar apoio:",
         JSON.stringify(
           {
-            message:
-              insertError?.message,
-            code:
-              insertError?.code,
-            details:
-              insertError?.details,
-            hint:
-              insertError?.hint,
+            message: insertError?.message,
+            code: insertError?.code,
+            details: insertError?.details,
+            hint: insertError?.hint,
           },
           null,
           2
@@ -918,33 +476,16 @@ export async function submitPublicSupportForm(
     /*
      * Atividade inicial.
      */
-    const {
-      error: activityError,
-    } = await supabase
-      .from(
-        "supporter_activities"
-      )
+    const { error: activityError } = await supabase
+      .from("supporter_activities")
       .insert({
-        campaign_id:
-          landing.campaign_id,
-
-        supporter_id:
-          supporter.id,
-
-        activity_type:
-          "created",
-
-        title:
-          "Cadastro pela Landing Page",
-
-        description:
-          groupName
-            ? participationType
-              ? `Novo contato interessado em: ${participationType}. Região identificada automaticamente: ${groupName}.`
-              : `Novo contato recebido pelo formulário público da campanha. Região identificada automaticamente: ${groupName}.`
-            : participationType
-              ? `Novo contato interessado em: ${participationType}.`
-              : "Novo contato recebido pelo formulário público da campanha.",
+        campaign_id: landing.campaign_id,
+        supporter_id: supporter.id,
+        activity_type: "created",
+        title: "Cadastro pela Landing Page",
+        description: groupName
+          ? `Novo contato recebido pelo formulário público da campanha. Região identificada automaticamente: ${groupName}.`
+          : "Novo contato recebido pelo formulário público da campanha.",
       });
 
     if (activityError) {
@@ -954,30 +495,15 @@ export async function submitPublicSupportForm(
       );
     }
 
-    revalidatePath(
-      "/dashboard"
-    );
-
-    revalidatePath(
-      "/dashboard/apoiadores"
-    );
-
-    revalidatePath(
-      "/dashboard/crm"
-    );
-
-    revalidatePath(
-      "/dashboard/mobilizacao"
-    );
-
-    revalidatePath(
-      `/c/${landing.slug}`
-    );
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/apoiadores");
+    revalidatePath("/dashboard/crm");
+    revalidatePath("/dashboard/mobilizacao");
+    revalidatePath(`/c/${landing.slug}`);
 
     return {
       success:
         "Cadastro recebido com sucesso! Nossa equipe entrará em contato.",
-
       groupUrl,
       groupName,
     };

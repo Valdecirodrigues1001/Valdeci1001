@@ -229,10 +229,7 @@ export default function SupportForm({
 
           {state.errors?.full_name ? (
             <p className="mt-2 text-sm text-red-300">
-              {
-                state.errors
-                  .full_name
-              }
+              {state.errors.full_name}
             </p>
           ) : null}
         </div>
@@ -258,37 +255,7 @@ export default function SupportForm({
 
           {state.errors?.whatsapp ? (
             <p className="mt-2 text-sm text-red-300">
-              {
-                state.errors
-                  .whatsapp
-              }
-            </p>
-          ) : null}
-        </div>
-
-        <div>
-          <label
-            htmlFor="support_email"
-            className={labelClassName}
-          >
-            E-mail
-          </label>
-
-          <input
-            id="support_email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="seu@email.com"
-            className={inputClassName}
-          />
-
-          {state.errors?.email ? (
-            <p className="mt-2 text-sm text-red-300">
-              {
-                state.errors
-                  .email
-              }
+              {state.errors.whatsapp}
             </p>
           ) : null}
         </div>
@@ -309,99 +276,12 @@ export default function SupportForm({
             className={inputClassName}
           />
         </div>
-
-        <div>
-          <label
-            htmlFor="support_neighborhood"
-            className={labelClassName}
-          >
-            Bairro
-          </label>
-
-          <input
-            id="support_neighborhood"
-            name="neighborhood"
-            autoComplete="address-level3"
-            placeholder="Seu bairro"
-            className={inputClassName}
-          />
-        </div>
-
-        <div className="sm:col-span-2">
-          <label
-            htmlFor="support_participation_type"
-            className={labelClassName}
-          >
-            Como deseja participar?
-          </label>
-
-          <select
-            id="support_participation_type"
-            name="participation_type"
-            defaultValue=""
-            className={inputClassName}
-          >
-            <option
-              value=""
-              className="text-slate-900"
-            >
-              Selecione uma opção
-            </option>
-
-            <option
-              value="Apoiar a campanha"
-              className="text-slate-900"
-            >
-              Apoiar a campanha
-            </option>
-
-            <option
-              value="Ser voluntário"
-              className="text-slate-900"
-            >
-              Ser voluntário
-            </option>
-
-            <option
-              value="Participar de eventos"
-              className="text-slate-900"
-            >
-              Participar de eventos
-            </option>
-
-            <option
-              value="Compartilhar materiais"
-              className="text-slate-900"
-            >
-              Compartilhar materiais
-            </option>
-
-            <option
-              value="Receber informações"
-              className="text-slate-900"
-            >
-              Receber informações
-            </option>
-          </select>
-        </div>
-
-        <div className="sm:col-span-2">
-          <label
-            htmlFor="support_message"
-            className={labelClassName}
-          >
-            Mensagem
-          </label>
-
-          <textarea
-            id="support_message"
-            name="message"
-            rows={4}
-            placeholder="Conte como você gostaria de participar..."
-            className="w-full resize-none rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-white/40 focus:bg-white/15 focus:ring-4 focus:ring-white/10"
-          />
-        </div>
       </div>
+
+      <p className="mt-4 text-sm leading-6 text-white/55">
+        Pelo seu DDD já direcionamos você ao grupo
+        oficial da sua região.
+      </p>
 
       {state.error ? (
         <p className="mt-5 rounded-xl bg-red-500/15 px-4 py-3 text-sm text-red-200">
