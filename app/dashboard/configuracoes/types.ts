@@ -46,6 +46,13 @@ export type CampaignSettings = {
   updated_at?: string;
 };
 
+export type RegionalGroup = {
+  id: string;
+  name: string;
+  ddd: string | null;
+  whatsapp_group_url: string | null;
+};
+
 export type CampaignModuleSettings = {
   supporters: boolean;
   volunteers: boolean;

@@ -8,9 +8,13 @@ import BrandingSettingsForm from "./components/branding-settings-form";
 import ContactSettingsForm from "./components/contact-settings-form";
 import SeoSettingsForm from "./components/seo-settings-form";
 import TrackingSettingsForm from "./components/tracking-settings-form";
+import RegionalGroupsForm from "./components/regional-groups-form";
 import ModulesSettingsForm from "./components/modules-settings-form";
 
-import { getSettingsPageData } from "./actions";
+import {
+  getRegionalGroups,
+  getSettingsPageData,
+} from "./actions";
 
 function buildCaptureUrl(
   slug: string | null,
@@ -37,6 +41,8 @@ export default async function SettingsPage() {
   if (!data) {
     redirect("/dashboard");
   }
+
+  const regionalGroups = await getRegionalGroups();
 
   return (
     <main className="px-5 pb-12 pt-20 sm:px-8 lg:px-10 lg:pt-10">
@@ -66,6 +72,10 @@ export default async function SettingsPage() {
               data.campaign.slug,
               data.campaign.custom_domain
             )}
+          />
+
+          <RegionalGroupsForm
+            groups={regionalGroups}
           />
 
           <ModulesSettingsForm
