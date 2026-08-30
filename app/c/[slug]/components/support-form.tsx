@@ -18,6 +18,12 @@ type SupportFormProps = {
   secondaryColor: string;
   accentColor: string;
   communityGroupUrl?: string | null;
+  /*
+   * A landing completa mostra o campo Cidade.
+   * A página de captação (tráfego pago) usa só
+   * Nome + WhatsApp para reduzir o atrito.
+   */
+  showCity?: boolean;
 };
 
 const initialState: PublicSupportFormState = {};
@@ -28,6 +34,7 @@ export default function SupportForm({
   secondaryColor,
   accentColor,
   communityGroupUrl,
+  showCity = true,
 }: SupportFormProps) {
   const submitAction =
     submitPublicSupportForm.bind(
@@ -234,7 +241,7 @@ export default function SupportForm({
           ) : null}
         </div>
 
-        <div>
+        <div className={showCity ? "" : "sm:col-span-2"}>
           <label
             htmlFor="support_whatsapp"
             className={labelClassName}
@@ -260,22 +267,24 @@ export default function SupportForm({
           ) : null}
         </div>
 
-        <div>
-          <label
-            htmlFor="support_city"
-            className={labelClassName}
-          >
-            Cidade
-          </label>
+        {showCity ? (
+          <div>
+            <label
+              htmlFor="support_city"
+              className={labelClassName}
+            >
+              Cidade
+            </label>
 
-          <input
-            id="support_city"
-            name="city"
-            autoComplete="address-level2"
-            placeholder="Sua cidade"
-            className={inputClassName}
-          />
-        </div>
+            <input
+              id="support_city"
+              name="city"
+              autoComplete="address-level2"
+              placeholder="Sua cidade"
+              className={inputClassName}
+            />
+          </div>
+        ) : null}
       </div>
 
       <p className="mt-4 text-sm leading-6 text-white/55">
