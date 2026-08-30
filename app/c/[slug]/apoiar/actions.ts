@@ -2,6 +2,63 @@
 
 import { createClient } from "@/lib/supabase/server";
 
+import type { TrackingConfig } from "@/components/tracking/tracking-scripts";
+
+const EMPTY_TRACKING: TrackingConfig = {
+  metaPixelId: null,
+  ga4MeasurementId: null,
+  googleAdsTagId: null,
+  googleAdsConversionLabel: null,
+};
+
+/*
+ * Configuração de pixels da campanha.
+ *
+ * Resiliente: se as colunas ainda não existirem no banco
+ * (feature nova), devolve tudo nulo em vez de derrubar a
+ * página.
+ */
+export async function getPublicTrackingConfig(
+  slug: string
+): Promise<TrackingConfig> {
+  try {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+      .from("campaign_landing_pages")
+      .select(`
+        meta_pixel_id,
+        ga4_measurement_id,
+        google_ads_tag_id,
+        google_ads_conversion_label
+      `)
+      .eq("slug", slug)
+      .eq("is_published", true)
+      .maybeSingle();
+
+    if (error || !data) {
+      return EMPTY_TRACKING;
+    }
+
+    return {
+      metaPixelId:
+        (data.meta_pixel_id as string | null) || null,
+      ga4MeasurementId:
+        (data.ga4_measurement_id as string | null) ||
+        null,
+      googleAdsTagId:
+        (data.google_ads_tag_id as string | null) ||
+        null,
+      googleAdsConversionLabel:
+        (data.google_ads_conversion_label as
+          | string
+          | null) || null,
+    };
+  } catch {
+    return EMPTY_TRACKING;
+  }
+}
+
 export type CapturePageData = {
   slug: string;
   public_name: string;

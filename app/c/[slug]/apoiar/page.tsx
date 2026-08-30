@@ -3,14 +3,52 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Check, MapPin, Users } from "lucide-react";
 
+import { TrackingScripts } from "@/components/tracking/tracking-scripts";
+
 import SupportForm from "../components/support-form";
-import { getCapturePageData } from "./actions";
+import {
+  getCapturePageData,
+  getPublicTrackingConfig,
+} from "./actions";
 
 type CapturePageProps = {
   params: Promise<{
     slug: string;
   }>;
+  searchParams: Promise<
+    Record<string, string | string[] | undefined>
+  >;
 };
+
+const UTM_KEYS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+] as const;
+
+function extractUtms(
+  searchParams: Record<
+    string,
+    string | string[] | undefined
+  >
+): Record<string, string> {
+  const utms: Record<string, string> = {};
+
+  for (const key of UTM_KEYS) {
+    const value = searchParams[key];
+    const single = Array.isArray(value)
+      ? value[0]
+      : value;
+
+    if (single) {
+      utms[key] = single.slice(0, 120);
+    }
+  }
+
+  return utms;
+}
 
 export async function generateMetadata({
   params,
@@ -77,14 +115,28 @@ const BENEFITS = [
 
 export default async function CapturePage({
   params,
+  searchParams,
 }: CapturePageProps) {
   const { slug } = await params;
 
-  const data = await getCapturePageData(slug);
+  const [data, tracking, resolvedSearchParams] =
+    await Promise.all([
+      getCapturePageData(slug),
+      getPublicTrackingConfig(slug),
+      searchParams,
+    ]);
 
   if (!data) {
     notFound();
   }
+
+  const utms = extractUtms(resolvedSearchParams);
+
+  const googleAdsSendTo =
+    tracking.googleAdsTagId &&
+    tracking.googleAdsConversionLabel
+      ? `${tracking.googleAdsTagId}/${tracking.googleAdsConversionLabel}`
+      : null;
 
   const {
     primary_color: primaryColor,
@@ -115,6 +167,8 @@ export default async function CapturePage({
         color: accentColor,
       }}
     >
+      <TrackingScripts config={tracking} />
+
       {data.hero_image_url ? (
         <div className="absolute inset-0 -z-20">
           <Image
@@ -271,6 +325,8 @@ export default async function CapturePage({
               accentColor={accentColor}
               communityGroupUrl={data.community_group_url}
               showCity={false}
+              hiddenFields={utms}
+              googleAdsSendTo={googleAdsSendTo}
             />
           </div>
         </div>

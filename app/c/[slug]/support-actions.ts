@@ -60,14 +60,42 @@ function getDDD(phone: string): string | null {
   return null;
 }
 
-function buildRegionNote(
+const UTM_KEYS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+] as const;
+
+/*
+ * Monta a nota do apoiador com a região identificada
+ * pelo DDD e a origem do anúncio (UTMs), quando houver.
+ */
+function buildLeadNote(
+  formData: FormData,
   regionalAreaName?: string | null
 ): string | null {
-  if (!regionalAreaName) {
-    return null;
+  const parts: string[] = [];
+
+  if (regionalAreaName) {
+    parts.push(
+      `Região identificada automaticamente pelo DDD: ${regionalAreaName}.`
+    );
   }
 
-  return `Região identificada automaticamente pelo DDD: ${regionalAreaName}.`;
+  const utmParts = UTM_KEYS.map((key) => {
+    const value = getString(formData, key);
+    return value ? `${key}=${value}` : null;
+  }).filter(Boolean);
+
+  if (utmParts.length > 0) {
+    parts.push(
+      `Origem do anúncio: ${utmParts.join(", ")}.`
+    );
+  }
+
+  return parts.length > 0 ? parts.join("\n\n") : null;
 }
 
 type RegionalArea = {
@@ -329,7 +357,7 @@ export async function submitPublicSupportForm(
       regionalArea?.whatsapp_group_url ?? null;
     const groupName = regionalArea?.name ?? null;
 
-    const note = buildRegionNote(groupName);
+    const note = buildLeadNote(formData, groupName);
 
     /*
      * =====================================================

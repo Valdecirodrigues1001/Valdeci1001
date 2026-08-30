@@ -93,6 +93,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData | null> {
   const campaign: CampaignSettings = {
     id: data.id,
     campaign_id: data.campaign_id,
+    slug: data.slug ?? null,
 
     public_name: data.public_name ?? "",
     political_position:
@@ -138,6 +139,15 @@ export async function getSettingsPageData(): Promise<SettingsPageData | null> {
     seo_keywords:
       data.seo_keywords ?? null,
 
+    meta_pixel_id:
+      data.meta_pixel_id ?? null,
+    ga4_measurement_id:
+      data.ga4_measurement_id ?? null,
+    google_ads_tag_id:
+      data.google_ads_tag_id ?? null,
+    google_ads_conversion_label:
+      data.google_ads_conversion_label ?? null,
+
     created_at: data.created_at,
     updated_at: data.updated_at,
   };
@@ -174,6 +184,7 @@ export async function updateCampaignSettings(
   const {
     id: _id,
     campaign_id: _campaignId,
+    slug: _slug,
     created_at: _createdAt,
     updated_at: _updatedAt,
     ...payload

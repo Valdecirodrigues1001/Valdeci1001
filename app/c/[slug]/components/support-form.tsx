@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import {
   CheckCircle2,
   HeartHandshake,
@@ -11,6 +11,13 @@ import {
   type PublicSupportFormState,
   submitPublicSupportForm,
 } from "../support-actions";
+
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+    gtag?: (...args: unknown[]) => void;
+  }
+}
 
 type SupportFormProps = {
   slug: string;
@@ -24,6 +31,16 @@ type SupportFormProps = {
    * Nome + WhatsApp para reduzir o atrito.
    */
   showCity?: boolean;
+  /*
+   * Campos ocultos enviados junto (ex.: UTMs da campanha
+   * de anúncio) para o servidor registrar a origem do lead.
+   */
+  hiddenFields?: Record<string, string>;
+  /*
+   * "AW-XXXX/label" — quando presente, dispara a conversão
+   * do Google Ads no envio bem-sucedido.
+   */
+  googleAdsSendTo?: string | null;
 };
 
 const initialState: PublicSupportFormState = {};
@@ -35,6 +52,8 @@ export default function SupportForm({
   accentColor,
   communityGroupUrl,
   showCity = true,
+  hiddenFields,
+  googleAdsSendTo,
 }: SupportFormProps) {
   const submitAction =
     submitPublicSupportForm.bind(
@@ -50,6 +69,26 @@ export default function SupportForm({
     submitAction,
     initialState
   );
+
+  /*
+   * Dispara os eventos de conversão quando o cadastro
+   * é concluído. Cada chamada é um no-op se a biblioteca
+   * correspondente não estiver carregada na página.
+   */
+  useEffect(() => {
+    if (!state.success) {
+      return;
+    }
+
+    window.fbq?.("track", "Lead");
+    window.gtag?.("event", "generate_lead");
+
+    if (googleAdsSendTo) {
+      window.gtag?.("event", "conversion", {
+        send_to: googleAdsSendTo,
+      });
+    }
+  }, [state.success, googleAdsSendTo]);
 
   const inputClassName =
     "h-12 w-full rounded-xl border border-white/15 bg-white/10 px-4 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-white/40 focus:bg-white/15 focus:ring-4 focus:ring-white/10";
@@ -190,6 +229,19 @@ export default function SupportForm({
           autoComplete="off"
         />
       </div>
+
+      {hiddenFields
+        ? Object.entries(hiddenFields).map(
+            ([name, value]) => (
+              <input
+                key={name}
+                type="hidden"
+                name={name}
+                value={value}
+              />
+            )
+          )
+        : null}
 
       <div className="flex items-start gap-4">
         <div

@@ -1,6 +1,7 @@
 export type CampaignSettings = {
   id: string;
   campaign_id: string;
+  slug: string | null;
 
   // Campanha
   public_name: string;
@@ -33,6 +34,12 @@ export type CampaignSettings = {
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
+
+  // Rastreamento / pixels (tráfego pago)
+  meta_pixel_id: string | null;
+  ga4_measurement_id: string | null;
+  google_ads_tag_id: string | null;
+  google_ads_conversion_label: string | null;
 
   // Controle
   created_at?: string;

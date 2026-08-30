@@ -7,9 +7,29 @@ import CampaignSettingsForm from "./components/campaign-settings-form";
 import BrandingSettingsForm from "./components/branding-settings-form";
 import ContactSettingsForm from "./components/contact-settings-form";
 import SeoSettingsForm from "./components/seo-settings-form";
+import TrackingSettingsForm from "./components/tracking-settings-form";
 import ModulesSettingsForm from "./components/modules-settings-form";
 
 import { getSettingsPageData } from "./actions";
+
+function buildCaptureUrl(
+  slug: string | null,
+  customDomain: string | null
+): string {
+  if (customDomain) {
+    return `https://${customDomain}/apoiar`;
+  }
+
+  const base = (
+    process.env.NEXT_PUBLIC_SITE_URL || ""
+  ).replace(/\/+$/, "");
+
+  if (slug && base) {
+    return `${base}/c/${slug}/apoiar`;
+  }
+
+  return slug ? `/c/${slug}/apoiar` : "/apoiar";
+}
 
 export default async function SettingsPage() {
   const data = await getSettingsPageData();
@@ -38,6 +58,14 @@ export default async function SettingsPage() {
 
           <SeoSettingsForm
             campaign={data.campaign}
+          />
+
+          <TrackingSettingsForm
+            campaign={data.campaign}
+            captureUrl={buildCaptureUrl(
+              data.campaign.slug,
+              data.campaign.custom_domain
+            )}
           />
 
           <ModulesSettingsForm
