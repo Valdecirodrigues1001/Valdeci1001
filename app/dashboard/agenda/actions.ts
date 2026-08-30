@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { authorizeAction } from "@/lib/auth/campaign-access";
+import { brasiliaInputToDate } from "@/lib/datetime";
 import { getString } from "@/lib/form-data";
 import { createClient } from "@/lib/supabase/server";
 
@@ -85,7 +86,7 @@ async function createCampaignEventInternal(
     };
   }
 
-  const startAt = new Date(`${startDate}T${startTime}:00`);
+  const startAt = brasiliaInputToDate(startDate, startTime);
 
   if (Number.isNaN(startAt.getTime())) {
     return {
@@ -96,7 +97,7 @@ async function createCampaignEventInternal(
   let endAt: Date | null = null;
 
   if (endDate && endTime) {
-    endAt = new Date(`${endDate}T${endTime}:00`);
+    endAt = brasiliaInputToDate(endDate, endTime);
 
     if (Number.isNaN(endAt.getTime())) {
       return {
@@ -310,7 +311,7 @@ async function updateCampaignEventInternal(
     };
   }
 
-  const startAt = new Date(`${startDate}T${startTime}:00`);
+  const startAt = brasiliaInputToDate(startDate, startTime);
 
   if (Number.isNaN(startAt.getTime())) {
     return {
@@ -321,7 +322,7 @@ async function updateCampaignEventInternal(
   let endAt: Date | null = null;
 
   if (endDate && endTime) {
-    endAt = new Date(`${endDate}T${endTime}:00`);
+    endAt = brasiliaInputToDate(endDate, endTime);
 
     if (Number.isNaN(endAt.getTime())) {
       return {

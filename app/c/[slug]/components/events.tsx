@@ -5,6 +5,8 @@ import {
   MapPin,
 } from "lucide-react";
 
+import { formatBrasilia } from "@/lib/datetime";
+
 import type {
   EventData,
   LandingData,
@@ -18,49 +20,36 @@ type EventsProps = {
 function formatEventDate(
   dateValue: string
 ): string {
-  return new Intl.DateTimeFormat(
-    "pt-BR",
-    {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }
-  ).format(new Date(dateValue));
+  return formatBrasilia(dateValue, {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function formatEventTime(
   dateValue: string
 ): string {
-  return new Intl.DateTimeFormat(
-    "pt-BR",
-    {
-      hour: "2-digit",
-      minute: "2-digit",
-    }
-  ).format(new Date(dateValue));
+  return formatBrasilia(dateValue, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatEventDay(
   dateValue: string
 ): string {
-  return new Intl.DateTimeFormat(
-    "pt-BR",
-    {
-      day: "2-digit",
-    }
-  ).format(new Date(dateValue));
+  return formatBrasilia(dateValue, {
+    day: "2-digit",
+  });
 }
 
 function formatEventMonth(
   dateValue: string
 ): string {
-  return new Intl.DateTimeFormat(
-    "pt-BR",
-    {
-      month: "short",
-    }
-  )
-    .format(new Date(dateValue))
+  return formatBrasilia(dateValue, {
+    month: "short",
+  })
     .replace(".", "")
     .toUpperCase();
 }

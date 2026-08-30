@@ -9,6 +9,7 @@ UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { formatBrasilia } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 import { EventEditForm } from "./event-edit-form";
 import { EventCompletionForm } from "./event-completion-form";
@@ -184,17 +185,17 @@ const addMemberAction = addEventMember.bind(
     .filter(Boolean)
     .join(" — ");
 
-  const startDate = new Intl.DateTimeFormat("pt-BR", {
+  const startDate = formatBrasilia(event.start_at, {
     weekday: "long",
     day: "2-digit",
     month: "long",
     year: "numeric",
-  }).format(new Date(event.start_at));
+  });
 
-  const startTime = new Intl.DateTimeFormat("pt-BR", {
+  const startTime = formatBrasilia(event.start_at, {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(event.start_at));
+  });
 
   return (
     <main className="px-5 pb-12 pt-20 sm:px-8 lg:px-10 lg:pt-10">

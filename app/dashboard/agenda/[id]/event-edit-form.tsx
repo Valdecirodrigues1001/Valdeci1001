@@ -9,6 +9,11 @@ import {
   Users,
 } from "lucide-react";
 import {
+  toDateInputValue,
+  toTimeInputValue,
+} from "@/lib/datetime";
+
+import {
   updateCampaignEvent,
   type AgendaActionState,
 } from "../actions";
@@ -43,30 +48,11 @@ type EventEditFormProps = {
 const initialState: AgendaActionState = {};
 
 function getDateValue(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
+  return value ? toDateInputValue(value) : "";
 }
 
 function getTimeValue(value: string | null) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  return [
-    String(date.getHours()).padStart(2, "0"),
-    String(date.getMinutes()).padStart(2, "0"),
-  ].join(":");
+  return value ? toTimeInputValue(value) : "";
 }
 
 export function EventEditForm({

@@ -1,6 +1,7 @@
 import ExcelJS from "exceljs";
 import { NextResponse } from "next/server";
 
+import { formatBrasilia } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import { getReportsData } from "../actions";
@@ -139,26 +140,6 @@ function getPeriodStart(
   return date;
 }
 
-function formatDate(
-  value: string | null
-): string {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(date);
-}
-
 function formatDateTime(
   value: string | null
 ): string {
@@ -172,13 +153,13 @@ function formatDateTime(
     return "";
   }
 
-  return new Intl.DateTimeFormat("pt-BR", {
+  return formatBrasilia(date, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+  });
 }
 
 function getPeriodLabel(

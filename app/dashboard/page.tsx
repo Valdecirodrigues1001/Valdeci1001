@@ -7,6 +7,11 @@ import {
 } from "lucide-react";
 import { redirect } from "next/navigation";
 
+import {
+  brasiliaInputToDate,
+  formatBrasilia,
+  todayInBrasilia,
+} from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 
 import { QuickActions } from "./quick-actions";
@@ -61,33 +66,24 @@ export default async function DashboardPage() {
 
   const now = new Date();
 
-  const today =
-    new Intl.DateTimeFormat(
-      "pt-BR",
-      {
-        weekday: "long",
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      }
-    ).format(now);
+  const today = formatBrasilia(now, {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    0,
-    0,
-    0
+  /* Limites de "hoje" no horário de Brasília. */
+  const todayDateValue = todayInBrasilia();
+
+  const todayStart = brasiliaInputToDate(
+    todayDateValue,
+    "00:00"
   );
 
-  const todayEnd = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    23,
-    59,
-    59
+  const todayEnd = brasiliaInputToDate(
+    todayDateValue,
+    "23:59"
   );
 
   const sevenDaysAgo =
@@ -103,16 +99,6 @@ export default async function DashboardPage() {
   twentyFourHoursAgo.setHours(
     twentyFourHoursAgo.getHours() - 24
   );
-
-  const todayDateValue = [
-    now.getFullYear(),
-    String(
-      now.getMonth() + 1
-    ).padStart(2, "0"),
-    String(
-      now.getDate()
-    ).padStart(2, "0"),
-  ].join("-");
 
   const [
     { data: upcomingEventsData },

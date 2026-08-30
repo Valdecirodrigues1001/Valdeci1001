@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { formatBrasilia } from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 import {
   deleteCampaignEvent,
@@ -76,19 +77,19 @@ const statusClasses: Record<string, string> = {
 };
 
 function formatEventDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
+  return formatBrasilia(value, {
     weekday: "short",
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(new Date(value));
+  });
 }
 
 function formatEventTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
+  return formatBrasilia(value, {
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  });
 }
 
 export default async function AgendaPage({

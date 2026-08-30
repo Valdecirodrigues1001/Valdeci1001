@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { formatBrasilia } from "@/lib/datetime";
+
 type DashboardEvent = {
   id: string;
   title: string;
@@ -39,24 +41,21 @@ const statusClasses: Record<string, string> = {
 };
 
 function formatEventDate(value: string) {
-  const date = new Date(value);
-
   return {
-    day: new Intl.DateTimeFormat("pt-BR", {
+    day: formatBrasilia(value, {
       day: "2-digit",
-    }).format(date),
+    }),
 
-    month: new Intl.DateTimeFormat("pt-BR", {
+    month: formatBrasilia(value, {
       month: "short",
     })
-      .format(date)
       .replace(".", "")
       .toUpperCase(),
 
-    time: new Intl.DateTimeFormat("pt-BR", {
+    time: formatBrasilia(value, {
       hour: "2-digit",
       minute: "2-digit",
-    }).format(date),
+    }),
   };
 }
 

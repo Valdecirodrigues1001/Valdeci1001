@@ -9,6 +9,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  brasiliaInputToDate,
+  formatBrasilia,
+} from "@/lib/datetime";
 import { createClient } from "@/lib/supabase/server";
 import {
   completeEventFollowUp,
@@ -38,7 +42,7 @@ function isOverdue(value: string | null) {
     return false;
   }
 
-  const dueDate = new Date(`${value}T23:59:59`);
+  const dueDate = brasiliaInputToDate(value, "23:59");
   return dueDate.getTime() < Date.now();
 }
 
@@ -296,12 +300,13 @@ export default async function FollowUpsPage({
                         <span className="inline-flex items-center gap-2">
                           <Clock3 size={16} />
                           Compromisso realizado em{" "}
-                          {new Intl.DateTimeFormat("pt-BR", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          }).format(
-                            new Date(followUp.start_at)
+                          {formatBrasilia(
+                            followUp.start_at,
+                            {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            }
                           )}
                         </span>
                       </div>
