@@ -18,7 +18,7 @@ export default function BrandingSettingsForm({
   const [form, setForm] = useState({
     primary_color: campaign.primary_color ?? "#0F172A",
     secondary_color: campaign.secondary_color ?? "#D4AF37",
-    contrast_color: campaign.contrast_color ?? "#FFFFFF",
+    accent_color: campaign.accent_color ?? "#FFFFFF",
     background_color: campaign.background_color ?? "#FFFFFF",
     text_color: campaign.text_color ?? "#1E293B",
   });
@@ -42,7 +42,7 @@ export default function BrandingSettingsForm({
       const result = await updateCampaignSettings({
         primary_color: form.primary_color,
         secondary_color: form.secondary_color,
-        contrast_color: form.contrast_color,
+        accent_color: form.accent_color,
         background_color: form.background_color,
         text_color: form.text_color,
       });
@@ -68,7 +68,7 @@ export default function BrandingSettingsForm({
       description: "Detalhes, ícones e elementos complementares.",
     },
     {
-      key: "contrast_color" as const,
+      key: "accent_color" as const,
       label: "Cor de contraste",
       description: "Textos e elementos sobre fundos escuros.",
     },
@@ -110,7 +110,7 @@ export default function BrandingSettingsForm({
             className="flex h-20 items-center justify-center rounded-xl px-3 text-center text-xs font-medium"
             style={{
               backgroundColor: form.primary_color,
-              color: form.contrast_color,
+              color: form.accent_color,
             }}
           >
             Principal
@@ -129,7 +129,7 @@ export default function BrandingSettingsForm({
           <div
             className="flex h-20 items-center justify-center rounded-xl border border-slate-200 px-3 text-center text-xs font-medium"
             style={{
-              backgroundColor: form.contrast_color,
+              backgroundColor: form.accent_color,
               color: form.text_color,
             }}
           >

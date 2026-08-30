@@ -112,8 +112,8 @@ export async function getSettingsPageData(): Promise<SettingsPageData | null> {
       data.primary_color ?? null,
     secondary_color:
       data.secondary_color ?? null,
-    contrast_color:
-      data.contrast_color ?? null,
+    accent_color:
+      data.accent_color ?? null,
     background_color:
       data.background_color ?? null,
     text_color:
