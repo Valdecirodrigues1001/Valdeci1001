@@ -1,12 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
+import { ArrowRight, Users } from "lucide-react";
 
 import SettingsHeader from "./components/settings-header";
-import CampaignSettingsForm from "./components/campaign-settings-form";
-import BrandingSettingsForm from "./components/branding-settings-form";
-import ContactSettingsForm from "./components/contact-settings-form";
-import SeoSettingsForm from "./components/seo-settings-form";
 import TrackingSettingsForm from "./components/tracking-settings-form";
 import RegionalGroupsForm from "./components/regional-groups-form";
 import ModulesSettingsForm from "./components/modules-settings-form";
@@ -50,21 +46,29 @@ export default async function SettingsPage() {
         <SettingsHeader />
 
         <div className="grid gap-8">
-          <CampaignSettingsForm
-            campaign={data.campaign}
-          />
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-slate-950">
+                  Informações e visual do site
+                </h2>
 
-          <BrandingSettingsForm
-            campaign={data.campaign}
-          />
+                <p className="mt-1 max-w-xl text-sm leading-6 text-slate-500">
+                  Nome do candidato, número, partido, cores,
+                  contatos, redes sociais, imagens e SEO agora
+                  ficam em um único lugar: a página Landing Page.
+                </p>
+              </div>
 
-          <ContactSettingsForm
-            campaign={data.campaign}
-          />
-
-          <SeoSettingsForm
-            campaign={data.campaign}
-          />
+              <Link
+                href="/dashboard/landing-page"
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                Abrir Landing Page
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </section>
 
           <TrackingSettingsForm
             campaign={data.campaign}

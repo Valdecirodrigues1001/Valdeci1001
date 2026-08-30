@@ -1,39 +1,13 @@
+/*
+ * Só o que Configurações ainda edita. O resto (nome do
+ * candidato, cores, contatos, SEO, imagens) vive em
+ * app/dashboard/landing-page — fonte única.
+ */
 export type CampaignSettings = {
   id: string;
   campaign_id: string;
   slug: string | null;
-
-  // Campanha
-  public_name: string;
-  political_position: string | null;
-  campaign_number: string | null;
-  political_party: string | null;
-  city: string | null;
-  state: string | null;
-  slogan: string | null;
-
-  // Identidade
-  logo_url: string | null;
-  primary_color: string | null;
-  secondary_color: string | null;
-  accent_color: string | null;
-  background_color: string | null;
-  text_color: string | null;
-
-  // Contatos
-  whatsapp: string | null;
-  email: string | null;
-  instagram_url: string | null;
-  facebook_url: string | null;
-  youtube_url: string | null;
-  tiktok_url: string | null;
-  x_url: string | null;
-
-  // SEO / domínio
   custom_domain: string | null;
-  seo_title: string | null;
-  seo_description: string | null;
-  seo_keywords: string | null;
 
   // Rastreamento / pixels (tráfego pago)
   meta_pixel_id: string | null;

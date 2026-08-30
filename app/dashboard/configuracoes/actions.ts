@@ -95,50 +95,7 @@ export async function getSettingsPageData(): Promise<SettingsPageData | null> {
     id: data.id,
     campaign_id: data.campaign_id,
     slug: data.slug ?? null,
-
-    public_name: data.public_name ?? "",
-    political_position:
-      data.political_position ?? null,
-    campaign_number:
-      data.campaign_number ?? null,
-    political_party:
-      data.political_party ?? null,
-    city: data.city ?? null,
-    state: data.state ?? null,
-    slogan: data.slogan ?? null,
-
-    logo_url: data.logo_url ?? null,
-    primary_color:
-      data.primary_color ?? null,
-    secondary_color:
-      data.secondary_color ?? null,
-    accent_color:
-      data.accent_color ?? null,
-    background_color:
-      data.background_color ?? null,
-    text_color:
-      data.text_color ?? null,
-
-    whatsapp: data.whatsapp ?? null,
-    email: data.email ?? null,
-    instagram_url:
-      data.instagram_url ?? null,
-    facebook_url:
-      data.facebook_url ?? null,
-    youtube_url:
-      data.youtube_url ?? null,
-    tiktok_url:
-      data.tiktok_url ?? null,
-    x_url: data.x_url ?? null,
-
-    custom_domain:
-      data.custom_domain ?? null,
-    seo_title:
-      data.seo_title ?? null,
-    seo_description:
-      data.seo_description ?? null,
-    seo_keywords:
-      data.seo_keywords ?? null,
+    custom_domain: data.custom_domain ?? null,
 
     meta_pixel_id:
       data.meta_pixel_id ?? null,
